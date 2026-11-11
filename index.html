@@ -1,0 +1,1675 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>釣果ノート</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@400;500;700;800&family=Bebas+Neue&family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap">
+<style>
+  /* ============================================================
+     釣果ノート — Pop Ocean Theme
+     朝マズメのオレンジ × 海のターコイズ × 砂浜クリーム
+     ============================================================ */
+  :root {
+    --bg: #fff8ee;
+    --bg-2: #fff1df;
+    --surface: #ffffff;
+    --ink: #1a2b4a;
+    --muted: #7a8aa8;
+    --line: #ecdcc8;
+    --accent: #ff6b35;
+    --accent-2: #ffb627;
+    --accent-ink: #ffffff;
+    --sea: #00a8c6;
+    --sea-deep: #0066a1;
+    --sea-soft: #e0f7fa;
+    --pop-pink: #ff5d8f;
+    --pop-lime: #b8e986;
+    --pop-purple: #8b5cf6;
+    --private: #a16207;
+    --private-soft: #fef3c7;
+    --danger: #e11d48;
+    --scrim: rgba(10, 20, 40, 0.86);
+    --grad-sunrise: linear-gradient(135deg, #ffb627 0%, #ff6b35 55%, #ff5d8f 100%);
+    --grad-sea: linear-gradient(135deg, #00a8c6 0%, #0066a1 100%);
+    --shadow-sm: 0 1px 2px rgba(26,43,74,.06), 0 2px 6px rgba(26,43,74,.05);
+    --shadow-md: 0 2px 8px rgba(26,43,74,.07), 0 10px 24px rgba(26,43,74,.06);
+    --shadow-glow: 0 6px 20px rgba(255,107,53,.28);
+    --font-display: "M PLUS Rounded 1c", "Dela Gothic One", "Hiragino Maru Gothic ProN", sans-serif;
+    --font-numeric: "Bebas Neue", "Oswald", "Dela Gothic One", sans-serif;
+    --font-body: "Zen Kaku Gothic New", "Hiragino Sans", "Noto Sans JP", system-ui, sans-serif;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0b1026; --bg-2: #0f1633; --surface: #151b3d;
+      --ink: #e8ecff; --muted: #8b93b8; --line: #2a3260;
+      --accent: #ffb627; --accent-2: #ff6b35; --accent-ink: #1a1206;
+      --sea: #4dd0e1; --sea-deep: #7dd3fc; --sea-soft: #102a3d;
+      --pop-pink: #ff8fb1; --pop-lime: #d4f28a; --pop-purple: #a78bfa;
+      --private: #fcd34d; --private-soft: #2a2410;
+      --danger: #fb7185;
+      --grad-sunrise: linear-gradient(135deg, #ff6b35 0%, #ff5d8f 60%, #8b5cf6 100%);
+      --grad-sea: linear-gradient(135deg, #0e7490 0%, #312e81 100%);
+      --shadow-sm: 0 1px 2px rgba(0,0,0,.4);
+      --shadow-md: 0 4px 20px rgba(0,0,0,.5);
+      --shadow-glow: 0 6px 24px rgba(255,182,39,.25);
+      --scrim: rgba(0, 0, 0, 0.9);
+      color-scheme: dark;
+    }
+  }
+  
+  :root[data-theme="dark"] {
+    --bg: #0b1026; --bg-2: #0f1633; --surface: #151b3d;
+    --ink: #e8ecff; --muted: #8b93b8; --line: #2a3260;
+    --accent: #ffb627; --accent-2: #ff6b35; --accent-ink: #1a1206;
+    --sea: #4dd0e1; --sea-deep: #7dd3fc; --sea-soft: #102a3d;
+    --pop-pink: #ff8fb1; --pop-lime: #d4f28a; --pop-purple: #a78bfa;
+    --private: #fcd34d; --private-soft: #2a2410;
+    --danger: #fb7185;
+    --grad-sunrise: linear-gradient(135deg, #ff6b35 0%, #ff5d8f 60%, #8b5cf6 100%);
+    --grad-sea: linear-gradient(135deg, #0e7490 0%, #312e81 100%);
+    --shadow-sm: 0 1px 2px rgba(0,0,0,.4);
+    --shadow-md: 0 4px 20px rgba(0,0,0,.5);
+    --shadow-glow: 0 6px 24px rgba(255,182,39,.25);
+    --scrim: rgba(0, 0, 0, 0.9);
+    color-scheme: dark;
+  }
+
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+
+  body {
+    margin: 0;
+    background:
+      radial-gradient(1200px 420px at 50% -120px, rgba(255,182,39,.18), transparent 70%),
+      radial-gradient(900px 500px at 50% 110%, rgba(0,168,198,.10), transparent 70%),
+      var(--bg);
+    background-attachment: fixed;
+    color: var(--ink);
+    font-family: var(--font-body);
+    font-size: 15px;
+    line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap {
+    max-width: 780px; margin: 0 auto; padding-block: 24px 48px;
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+    display: grid; gap: 18px;
+  }
+
+  /* ===== 認証画面 ===== */
+  .auth-screen {
+    min-height: 100vh;
+    display: grid;
+    place-items: center;
+    padding: 24px;
+    background:
+      radial-gradient(900px 400px at 50% -80px, rgba(255,182,39,.22), transparent 70%),
+      radial-gradient(800px 500px at 50% 110%, rgba(0,168,198,.14), transparent 70%),
+      var(--bg);
+  }
+  .auth-card {
+    width: 100%;
+    max-width: 380px;
+    background: var(--surface);
+    border-radius: 24px;
+    padding: 32px 28px;
+    box-shadow: var(--shadow-md);
+    display: grid;
+    gap: 16px;
+  }
+  .auth-title {
+    font-family: var(--font-display);
+    font-weight: 800;
+    font-size: 1.8rem;
+    margin: 0;
+    text-align: center;
+    background: var(--grad-sunrise);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .auth-sub { text-align: center; color: var(--muted); font-size: 0.85rem; margin: -8px 0 0; }
+  .auth-card label { font-size: 0.82rem; }
+  .auth-card input { background: var(--bg); }
+  .auth-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 4px; }
+  .auth-note { font-size: 0.75rem; color: var(--muted); text-align: center; margin: 0; }
+
+  /* ---------- ヘッダー ---------- */
+  header {
+    display: flex; align-items: baseline; justify-content: space-between;
+    gap: 12px; flex-wrap: wrap;
+    position: relative;
+  }
+  h1 {
+    font-family: var(--font-display);
+    font-weight: 800;
+    font-size: 2rem;
+    margin: 0;
+    letter-spacing: 0.01em;
+    line-height: 1.1;
+    background: var(--grad-sunrise);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    filter: drop-shadow(0 2px 0 rgba(255,255,255,.6));
+  }
+  h1::after {
+    content: " 🎣";
+    font-size: 1.4rem;
+    -webkit-text-fill-color: initial;
+    color: initial;
+    filter: none;
+    display: inline-block;
+    transform: translateY(2px) rotate(-8deg);
+  }
+  h2 {
+    font-family: var(--font-display);
+    font-weight: 800;
+    font-size: 1.05rem;
+    margin: 0;
+    letter-spacing: 0.01em;
+  }
+  h2 .ic { color: var(--sea); margin-right: 6px; }
+  h4 {
+    font-family: var(--font-display);
+    font-size: 0.78rem; font-weight: 800; margin: 6px 0 2px;
+    color: var(--sea-deep); letter-spacing: 0.06em;
+    grid-column: 1 / -1;
+    display: flex; align-items: center; gap: 6px;
+  }
+  h4 .ic { color: var(--accent); margin-right: 4px; }
+  .role { font-size: 0.8rem; color: var(--muted); background: var(--surface); border-radius: 999px; padding: 3px 12px; box-shadow: var(--shadow-sm); }
+  .role b { color: var(--sea-deep); }
+  a { color: var(--sea-deep); text-underline-offset: 3px; text-decoration-thickness: 2px; }
+  a:hover { color: var(--accent); }
+
+  /* ---------- 統計カード ---------- */
+  .stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+  .stat {
+    border-radius: 16px; padding: 12px 14px; min-width: 0;
+    background: var(--surface);
+    box-shadow: var(--shadow-sm);
+    border: 1px solid var(--line);
+    position: relative;
+    overflow: hidden;
+    transition: transform .18s ease, box-shadow .18s ease;
+  }
+  .stat:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); }
+  .stat span {
+    display: block; font-size: 0.7rem; color: var(--muted);
+    letter-spacing: 0.08em; font-weight: 700;
+  }
+  .stat span .ic { color: var(--sea); margin-right: 4px; }
+  .stat:nth-child(2) span .ic { color: var(--accent); }
+  .stat:nth-child(3) span .ic { color: var(--pop-pink); }
+  .stat:nth-child(4) span .ic { color: var(--pop-purple); }
+
+  .stat strong {
+    font-family: var(--font-numeric);
+    font-size: 1.9rem;
+    line-height: 1.1;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.02em;
+    display: inline-block;
+  }
+  .stat small { font-size: 0.78rem; font-weight: 700; margin-left: 4px; color: var(--muted); overflow-wrap: anywhere; }
+  .stat:nth-child(1) { border-left: 5px solid var(--sea); }
+  .stat:nth-child(1) strong { color: var(--sea-deep); }
+  .stat:nth-child(2) { border-left: 5px solid var(--accent); }
+  .stat:nth-child(2) strong { color: var(--accent); }
+  .stat:nth-child(3) { border-left: 5px solid var(--pop-pink); }
+  .stat:nth-child(3) strong { color: var(--pop-pink); }
+  .stat:nth-child(4) { border-left: 5px solid var(--pop-purple); }
+  .stat:nth-child(4) strong { color: var(--pop-purple); }
+  @media (max-width: 480px) { .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+  /* ---------- タブ ---------- */
+  nav.tabs {
+    display: flex; gap: 6px;
+    overflow-x: auto;
+    padding-bottom: 4px;
+    scrollbar-width: none;
+  }
+  nav.tabs::-webkit-scrollbar { display: none; }
+  nav.tabs a {
+    text-decoration: none; color: var(--muted); font-weight: 700;
+    padding: 9px 16px; white-space: nowrap;
+    border-radius: 999px;
+    border: 1px solid var(--line);
+    background: var(--surface);
+    transition: color .18s, background .18s, border-color .18s, transform .18s;
+  }
+  nav.tabs a .ic { margin-right: 4px; }
+  nav.tabs a:hover { color: var(--sea-deep); border-color: var(--sea); transform: translateY(-1px); }
+  nav.tabs a[aria-current="page"] {
+    color: #fff;
+    background: var(--grad-sea);
+    border-color: transparent;
+    box-shadow: 0 4px 14px rgba(0,168,198,.35);
+  }
+  nav.tabs a[aria-current="page"] .ic { color: inherit; }
+
+  .view { display: grid; gap: 16px; min-width: 0; }
+  .panel {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 18px;
+    padding: 18px;
+    display: grid; gap: 12px; min-width: 0;
+    box-shadow: var(--shadow-sm);
+  }
+
+  /* ---------- 入力セクション ---------- */
+  .sec {
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    background: var(--surface);
+    box-shadow: var(--shadow-sm);
+    overflow: hidden;
+    transition: box-shadow .2s;
+  }
+  .sec[open] { box-shadow: var(--shadow-md); }
+  .sec > summary {
+    list-style: none; cursor: pointer; padding: 12px 16px;
+    display: flex; align-items: baseline; gap: 10px; font-weight: 700;
+    background: linear-gradient(180deg, transparent, rgba(0,168,198,.04));
+  }
+  .sec > summary:hover { background: var(--sea-soft); }
+  .sec > summary::-webkit-details-marker { display: none; }
+  .sec > summary::before {
+    content: "▸"; color: var(--sea); font-size: 0.9rem;
+    transition: transform .2s;
+  }
+  .sec[open] > summary::before { content: "▾"; transform: rotate(0); }
+  .sec > summary .hint { font-weight: 500; font-size: 0.78rem; color: var(--muted); }
+  .sec > summary .num {
+    font-family: var(--font-numeric);
+    font-weight: 400; color: var(--accent);
+    font-size: 1.4rem; line-height: 1;
+    min-width: 1.2em; text-align: center;
+  }
+
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 12px 12px; padding: 4px 16px 16px;
+  }
+
+  label {
+    display: grid; gap: 4px;
+    font-size: 0.78rem; color: var(--muted); min-width: 0;
+    font-weight: 500;
+  }
+  label.wide { grid-column: 1 / -1; }
+  .lab-row { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; }
+
+  input, select, textarea {
+    font: inherit; font-size: 16px; color: var(--ink);
+    background: var(--bg);
+    border: 1.5px solid var(--line);
+    border-radius: 10px;
+    padding: 9px 12px; width: 100%; min-width: 0;
+    transition: border-color .15s, background .15s, box-shadow .15s;
+  }
+  input::placeholder, textarea::placeholder { color: #b3bcd0; }
+  input:hover, select:hover, textarea:hover { border-color: var(--sea); }
+  input:focus, select:focus, textarea:focus {
+    outline: none;
+    border-color: var(--sea);
+    background: var(--surface);
+    box-shadow: 0 0 0 4px rgba(0,168,198,.15);
+  }
+  input[type="file"] { padding: 6px; font-size: 14px; background: var(--surface); }
+  textarea { resize: vertical; min-height: 60px; }
+  input:focus-visible, select:focus-visible, textarea:focus-visible,
+  button:focus-visible, a:focus-visible, summary:focus-visible {
+    outline: 2px solid var(--sea); outline-offset: 2px;
+  }
+
+  .private-toggle {
+    display: inline-flex; gap: 4px; align-items: center;
+    font-size: 0.72rem; color: var(--private); cursor: pointer; white-space: nowrap;
+    background: var(--private-soft);
+    padding: 1px 8px; border-radius: 999px;
+    font-weight: 700;
+  }
+  .private-toggle input { width: auto; margin: 0; accent-color: var(--private); }
+  .weekday { font-size: 0.78rem; color: var(--accent); font-weight: 800; }
+  .ext-link { font-size: 0.8rem; grid-column: 1 / -1; font-weight: 700; }
+  .ext-link::after { content: " ↗"; }
+
+  /* ---------- 魚の行 ---------- */
+  .fish-rows { display: grid; gap: 12px; padding: 4px 16px 16px; }
+  .fish-row {
+    border: 1.5px dashed var(--line);
+    border-radius: 14px;
+    padding: 12px;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 10px 10px;
+    background: linear-gradient(180deg, var(--surface), var(--bg));
+    transition: border-color .2s, box-shadow .2s;
+  }
+  .fish-row:focus-within {
+    border-style: solid;
+    border-color: var(--sea);
+    box-shadow: 0 0 0 4px rgba(0,168,198,.12);
+  }
+  .fish-row .fr-head {
+    grid-column: 1 / -1;
+    display: flex; justify-content: space-between; align-items: center;
+    font-size: 0.82rem; font-weight: 800; color: var(--sea-deep);
+  }
+  .fish-row .fr-head::before { content: "🐟 "; }
+  .fish-row .wide { grid-column: 1 / -1; }
+  .fish-row .fr-photo {
+    grid-column: 1 / -1;
+    display: flex; gap: 10px; align-items: center; flex-wrap: wrap;
+  }
+  .fish-row .fr-photo label { flex: 1 1 200px; }
+  .fr-head .fr-acts { display: flex; gap: 2px; }
+
+  .boz { color: var(--muted); font-size: 0.88rem; margin: 0; text-align: center; padding: 12px; }
+  .moon-hint { font-size: 0.75rem; color: var(--sea-deep); font-weight: 600; }
+  .moon-hint.warn { color: var(--private); }
+
+  .draft-banner {
+    display: flex; gap: 8px; align-items: center; justify-content: space-between;
+    flex-wrap: wrap;
+    background: linear-gradient(135deg, #fff3cd, #ffe9a8);
+    color: #7a5a12;
+    border-radius: 12px; padding: 8px 14px; font-size: 0.85rem;
+    font-weight: 600;
+    box-shadow: var(--shadow-sm);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) .draft-banner { background: var(--private-soft); color: var(--private); }
+  }
+  :root[data-theme="dark"] .draft-banner { background: var(--private-soft); color: var(--private); }
+
+  .add-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; grid-column: 1 / -1; }
+  .time-wrap { display: flex; gap: 6px; }
+  .time-wrap input { flex: 1 1 auto; min-width: 0; max-width: 220px; }
+  .time-wrap button { padding: 4px 10px; font-size: 0.8rem; }
+
+  #more { justify-self: center; }
+  .list-head select { width: auto; font-size: 14px; padding: 6px 8px; }
+  .preview {
+    width: 72px; height: 72px; object-fit: cover;
+    border-radius: 12px; border: 2px solid var(--surface);
+    box-shadow: var(--shadow-sm);
+  }
+  .photo-status { font-size: 0.78rem; color: var(--muted); }
+  .photo-status.err { color: var(--danger); font-weight: 600; }
+  .previews { display: flex; gap: 8px; flex-wrap: wrap; grid-column: 1 / -1; }
+  .previews figure { margin: 0; position: relative; max-width: 140px; }
+  .previews figcaption { display: block; margin-top: 2px; overflow-wrap: anywhere; }
+  .previews button {
+    position: absolute; top: -6px; right: -6px;
+    padding: 0; width: 22px; height: 22px;
+    border-radius: 999px;
+    font-size: 0.75rem; line-height: 1;
+    background: var(--danger); color: #fff; border: 2px solid var(--surface);
+    box-shadow: var(--shadow-sm);
+    display: grid; place-items: center;
+  }
+
+  /* ---------- ボタン ---------- */
+  button {
+    font: inherit; font-weight: 800; cursor: pointer; border-radius: 12px;
+    padding: 10px 18px;
+    border: 0;
+    background: var(--grad-sunrise);
+    color: var(--accent-ink);
+    box-shadow: var(--shadow-glow);
+    transition: transform .12s, box-shadow .18s, filter .18s;
+    letter-spacing: 0.02em;
+  }
+  button:hover { transform: translateY(-1px); filter: brightness(1.05); }
+  button:active { transform: translateY(0); }
+  button:disabled { opacity: 0.5; cursor: wait; box-shadow: none; }
+
+  button.ghost {
+    background: var(--surface);
+    color: var(--sea-deep);
+    border: 1.5px solid var(--line);
+    box-shadow: var(--shadow-sm);
+  }
+  button.ghost:hover { border-color: var(--sea); color: var(--sea-deep); background: var(--sea-soft); }
+  button.small { padding: 4px 12px; font-size: 0.8rem; border-radius: 999px; }
+  button.link {
+    background: transparent; border-color: transparent;
+    color: var(--muted); font-weight: 600;
+    padding: 4px 10px; font-size: 0.8rem;
+    box-shadow: none;
+  }
+  button.link:hover { color: var(--sea-deep); background: var(--sea-soft); }
+  button.link.armed {
+    border: 1.5px solid var(--danger); color: var(--danger);
+    background: rgba(225,29,72,.08);
+  }
+
+  .form-actions {
+    display: flex; gap: 10px; align-items: center; flex-wrap: wrap;
+    position: sticky; bottom: 0;
+    background: color-mix(in srgb, var(--bg) 92%, transparent);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    padding: 12px 0 calc(12px + env(safe-area-inset-bottom, 0px));
+    margin-top: 8px;
+  }
+  .form-actions #save { font-size: 1rem; padding: 12px 24px; }
+
+  .msg { font-size: 0.85rem; color: var(--muted); font-weight: 600; }
+  .msg.err { color: var(--danger); }
+  .note { font-size: 0.88rem; color: var(--muted); margin: 0; }
+  .editing-banner {
+    background: var(--grad-sea);
+    color: #fff;
+    border-radius: 12px; padding: 8px 14px;
+    font-size: 0.85rem; font-weight: 800;
+    box-shadow: var(--shadow-sm);
+  }
+  .editing-banner::before { content: "✏️ "; }
+
+  /* ---------- 一覧 ---------- */
+  .list-head { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .list-head h2 { flex: 1 0 auto; white-space: nowrap; }
+  .list-head input { width: auto; flex: 1 1 180px; }
+
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip {
+    font-size: 0.78rem;
+    background: var(--sea-soft); color: var(--sea-deep);
+    border-radius: 999px; padding: 4px 12px;
+    cursor: pointer; border: 1.5px solid transparent;
+    font-weight: 700;
+    transition: all .15s;
+  }
+  .chip:hover { transform: translateY(-1px); }
+  .chip[aria-pressed="true"] {
+    border-color: var(--sea);
+    background: var(--sea);
+    color: #fff;
+    box-shadow: 0 3px 10px rgba(0,168,198,.3);
+  }
+  .chip.person { background: transparent; border-color: var(--line); color: var(--muted); }
+  .chip.person[aria-pressed="true"] {
+    border-color: var(--accent); background: var(--accent); color: #fff;
+    box-shadow: 0 3px 10px rgba(255,107,53,.3);
+  }
+
+  /* ---------- 釣果カード ---------- */
+  ol.trips { list-style: none; margin: 0; padding: 0; display: grid; gap: 14px; }
+  .trip {
+    border: 0;
+    border-radius: 20px;
+    padding: 16px 18px;
+    display: grid; gap: 10px; min-width: 0;
+    background: var(--surface);
+    box-shadow: var(--shadow-md);
+    position: relative;
+    overflow: hidden;
+    transition: transform .18s, box-shadow .18s;
+  }
+  .trip::after {
+    content: ""; position: absolute; top: 0; left: 0; right: 0; height: 4px;
+    background: var(--grad-sunrise);
+    opacity: .9;
+  }
+  .trip:hover { transform: translateY(-2px); box-shadow: 0 8px 28px rgba(26,43,74,.12); }
+  
+  /* 自己ベストリボン */
+  .trip.is-record::before {
+    content: "★ 自己ベスト";
+    position: absolute;
+    top: 14px; right: -34px;
+    width: 130px;
+    padding: 4px 0;
+    text-align: center;
+    background: var(--grad-sunrise);
+    color: #fff;
+    font-family: var(--font-display);
+    font-weight: 800;
+    font-size: 11px;
+    letter-spacing: 0.04em;
+    transform: rotate(38deg);
+    box-shadow: 0 4px 12px rgba(255,107,53,.35);
+    z-index: 1;
+    pointer-events: none;
+  }
+  .trip.is-record { border: 2px solid transparent; background-clip: padding-box; }
+
+  .trip-head {
+    display: flex; justify-content: space-between; gap: 8px;
+    align-items: flex-start; flex-wrap: wrap;
+  }
+  .trip-when {
+    font-family: var(--font-numeric);
+    font-variant-numeric: tabular-nums;
+    font-weight: 400;
+    font-size: 1.2rem;
+    letter-spacing: 0.03em;
+    color: var(--ink);
+  }
+  .trip-when small {
+    font-family: var(--font-body);
+    font-size: 0.75rem; font-weight: 600;
+    color: var(--muted); margin-left: 8px;
+  }
+  .trip-where { font-size: 0.9rem; overflow-wrap: anywhere; font-weight: 600; }
+  .boat {
+    display: inline-block; margin-left: 8px;
+    font-size: 0.75rem; color: #fff;
+    background: var(--grad-sea);
+    border-radius: 999px; padding: 2px 10px;
+    font-weight: 700;
+  }
+  .angler {
+    font-size: 0.78rem; color: var(--accent);
+    font-weight: 800;
+    display: inline-flex; align-items: center; gap: 4px;
+  }
+  .angler::before { content: "👤"; font-size: 0.85rem; }
+
+  .conds { display: flex; flex-wrap: wrap; gap: 5px 6px; }
+  .cond {
+    font-size: 0.75rem;
+    border: 1.5px solid var(--line);
+    border-radius: 999px;
+    padding: 2px 10px; color: var(--muted);
+    font-variant-numeric: tabular-nums;
+    background: var(--bg);
+    font-weight: 600;
+  }
+
+  ul.fishes { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+  .fi {
+    display: grid; grid-template-columns: minmax(0, 1fr) auto;
+    gap: 2px 10px; padding: 8px 0;
+    border-top: 1px dashed var(--line);
+  }
+  .fi:first-child { border-top: 0; }
+  .fi .name { font-weight: 800; font-size: 1rem; }
+  .fi .name .ic { color: var(--sea); margin-right: 4px; }
+  .fi .name[data-unit="squid"] .ic { color: var(--pop-purple); }
+  .fi .name .n { font-weight: 600; color: var(--muted); margin-left: 6px; font-variant-numeric: tabular-nums; }
+  
+  .fi .name .cam-badge {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 18px; height: 18px;
+    margin-left: 6px;
+    border-radius: 999px;
+    background: var(--sea-soft); color: var(--sea-deep);
+    vertical-align: -3px;
+  }
+  .fi .name .cam-badge .ic { margin: 0; width: 11px; height: 11px; }
+
+  .fi .size {
+    color: #fff;
+    background: var(--accent);
+    border-radius: 6px;
+    padding: 0 8px;
+    font-family: var(--font-numeric);
+    font-weight: 400;
+    font-size: 1.05rem;
+    letter-spacing: 0.04em;
+    margin-left: 8px;
+    vertical-align: 1px;
+    font-variant-numeric: tabular-nums;
+    display: inline-block;
+  }
+  .fi .time {
+    font-family: var(--font-numeric);
+    font-variant-numeric: tabular-nums;
+    color: var(--sea-deep);
+    font-size: 1.1rem;
+    letter-spacing: 0.04em;
+  }
+  .fi .sub { grid-column: 1 / -1; font-size: 0.82rem; color: var(--muted); overflow-wrap: anywhere; }
+
+  .boz-tag {
+    display: inline-block; font-size: 0.82rem;
+    color: #fff;
+    background: var(--grad-sea);
+    border-radius: 999px; padding: 3px 14px;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+  }
+  .boz-tag::before { content: "🌊 "; }
+
+  .block { font-size: 0.88rem; overflow-wrap: anywhere; white-space: pre-wrap; }
+  .block b {
+    display: block; font-size: 0.72rem; color: var(--muted);
+    letter-spacing: 0.06em; font-weight: 700;
+    margin-bottom: 2px;
+  }
+  .block.private {
+    background: var(--private-soft);
+    border-radius: 10px; padding: 8px 12px;
+    border-left: 4px solid var(--private);
+  }
+  .block.private b { color: var(--private); }
+  .block.private b::before { content: "🔒 "; }
+
+  .tackle { font-size: 0.85rem; }
+  .tackle summary {
+    cursor: pointer; color: var(--sea-deep);
+    font-size: 0.82rem; font-weight: 700;
+    display: inline-block;
+    padding: 3px 12px;
+    background: var(--sea-soft);
+    border-radius: 999px;
+    transition: background .15s;
+  }
+  .tackle summary:hover { background: color-mix(in srgb, var(--sea-soft) 80%, var(--sea)); }
+  .tackle dl {
+    display: grid; grid-template-columns: auto minmax(0, 1fr);
+    gap: 2px 10px; margin: 8px 0 0;
+  }
+  .tackle dt { color: var(--muted); font-size: 0.78rem; font-weight: 600; }
+  .tackle dd { margin: 0; overflow-wrap: anywhere; }
+
+  /* ---------- 写真 ---------- */
+  .photos { display: flex; gap: 8px; flex-wrap: wrap; }
+  .thumb {
+    padding: 0; border: 0; background: none; cursor: zoom-in;
+    border-radius: 14px; overflow: hidden;
+    box-shadow: var(--shadow-sm);
+    transition: transform .2s, box-shadow .2s;
+  }
+  .thumb:hover { transform: scale(1.04) rotate(-1deg); box-shadow: var(--shadow-md); }
+  .thumb img {
+    width: 140px; height: 140px;
+    object-fit: cover; border-radius: 14px; display: block;
+  }
+  @media (max-width: 480px) {
+    .thumb img { width: 110px; height: 110px; }
+  }
+
+  .trip-actions { display: flex; gap: 4px; }
+  
+  /* 空状態 */
+  .empty {
+    padding: 36px 16px 28px;
+    background:
+      radial-gradient(400px 120px at 50% 0%, rgba(0,168,198,.10), transparent 70%),
+      var(--surface);
+    border: 1.5px dashed var(--line);
+    border-radius: 20px;
+    position: relative;
+    overflow: hidden;
+    color: var(--muted); text-align: center;
+    margin: 0; font-size: 0.95rem;
+  }
+  .empty .empty-art {
+    display: block;
+    width: 120px; height: 120px;
+    margin: 0 auto 10px;
+    color: var(--accent);
+    animation: float 3.6s ease-in-out infinite;
+  }
+  .empty .empty-title {
+    display: block;
+    font-family: var(--font-display);
+    font-weight: 800;
+    color: var(--ink);
+    font-size: 1.05rem;
+    margin-bottom: 4px;
+  }
+  .empty .empty-sub {
+    display: block;
+    font-size: 0.85rem;
+    color: var(--muted);
+    font-weight: 600;
+  }
+  @keyframes float {
+    0%, 100% { transform: translateY(0) rotate(-3deg); }
+    50%      { transform: translateY(-8px) rotate(3deg); }
+  }
+
+  /* ---------- テーブル ---------- */
+  .table-wrap { overflow-x: auto; border-radius: 12px; }
+  table.t { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+  .t th, .t td { padding: 8px 6px; border-bottom: 1px solid var(--line); text-align: left; }
+  .t th {
+    font-size: 0.72rem; color: var(--muted); font-weight: 700;
+    letter-spacing: 0.06em; white-space: nowrap;
+    background: var(--bg);
+  }
+  .t th:first-child { border-top-left-radius: 10px; }
+  .t th:last-child { border-top-right-radius: 10px; }
+  .t td.num, .t th.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .t tr:last-child td { border-bottom: 0; }
+  .t tbody tr:hover td { background: color-mix(in srgb, var(--sea-soft) 40%, transparent); }
+  .t .me { color: var(--accent); font-weight: 800; }
+
+  /* ---------- ライトボックス ---------- */
+  .lightbox {
+    position: fixed; inset: 0; background: var(--scrim);
+    display: grid; place-items: center; z-index: 20; cursor: zoom-out;
+    padding: max(16px, env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) max(16px, env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px));
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+  }
+  .lightbox img { max-width: 100%; max-height: 100%; border-radius: 16px; box-shadow: 0 20px 60px rgba(0,0,0,.5); }
+
+  details.help { font-size: 0.88rem; color: var(--muted); }
+  details.help summary {
+    cursor: pointer; color: var(--sea-deep); font-weight: 700;
+    list-style: none;
+  }
+  details.help summary::-webkit-details-marker { display: none; }
+  details.help summary::before { content: "ℹ️ "; }
+  details.help ul { padding-left: 1.2em; margin: 8px 0 0; display: grid; gap: 6px; }
+
+  /* ---------- マイタックル ---------- */
+  .mytackle {
+    grid-column: 1 / -1; display: grid; gap: 10px;
+    background: var(--sea-soft);
+    border-radius: 14px; padding: 12px;
+    border: 1.5px solid color-mix(in srgb, var(--sea) 25%, transparent);
+  }
+  .mytackle .mt-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .mytackle .mt-row > * { flex: 1 1 180px; }
+  .mytackle .mt-row > button { flex: 0 0 auto; }
+  .mytackle .mt-title {
+    font-size: 0.8rem; font-weight: 800; color: var(--sea-deep);
+    letter-spacing: 0.04em;
+  }
+  .mytackle .mt-title::before { content: "🎣 "; }
+  .mt-chip {
+    display: inline-flex; align-items: center; gap: 2px;
+    font-size: 0.78rem; border: 1.5px solid var(--line);
+    background: var(--surface); border-radius: 999px;
+    padding: 2px 4px 2px 12px;
+    font-weight: 700;
+    box-shadow: var(--shadow-sm);
+  }
+  .mt-chip button {
+    padding: 0 8px; font-size: 0.78rem;
+    background: transparent; border: 0;
+    color: var(--muted); font-weight: 700;
+    box-shadow: none;
+  }
+  .mt-chip button:hover { color: var(--danger); transform: none; }
+  .mt-chip button.armed { color: var(--danger); }
+
+  /* ---------- 分析 ---------- */
+  .panel-head {
+    display: flex; justify-content: space-between; align-items: center;
+    gap: 8px; flex-wrap: wrap;
+  }
+  .controls { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .controls select { width: auto; font-size: 14px; padding: 6px 10px; }
+
+  .seg {
+    display: inline-flex;
+    border: 1.5px solid var(--line);
+    border-radius: 999px;
+    overflow: hidden; flex-wrap: wrap;
+    background: var(--bg);
+    padding: 2px;
+    gap: 2px;
+  }
+  .seg button {
+    border: 0; border-radius: 999px;
+    background: transparent; color: var(--muted);
+    font-weight: 700; padding: 5px 14px; font-size: 0.82rem;
+    box-shadow: none;
+    transition: color .15s, background .15s;
+  }
+  .seg button:hover { color: var(--sea-deep); transform: none; filter: none; }
+  .seg button[aria-pressed="true"] {
+    background: var(--sea);
+    color: #fff;
+    box-shadow: 0 2px 8px rgba(0,168,198,.3);
+  }
+
+  .chart { position: relative; }
+  .chart svg { width: 100%; height: auto; display: block; overflow: visible; }
+  .chart text { fill: var(--muted); font-size: 11px; font-family: var(--font-body); font-variant-numeric: tabular-nums; font-weight: 600; }
+  .chart .gridline { stroke: var(--line); stroke-width: 1; opacity: 0.8; }
+  .chart .baseline { stroke: var(--muted); stroke-width: 1; opacity: 0.5; }
+  .chart .bar { fill: var(--sea); transition: fill .15s; }
+  .chart .bar.on { fill: var(--accent); filter: drop-shadow(0 2px 6px rgba(255,107,53,.4)); }
+  .chart .hit { fill: transparent; cursor: pointer; }
+  
+  /* 魚ドット（サイズ分布） */
+  .chart .fish-dot { fill: var(--sea); opacity: .85; }
+  .chart .fish-dot:nth-child(3n) { fill: var(--sea-deep); }
+  .chart .fish-dot:nth-child(5n) { fill: var(--pop-purple); }
+  .chart .fish-dot.is-record-dot { fill: var(--accent); filter: drop-shadow(0 1px 3px rgba(255,107,53,.5)); }
+  .chart.dots { padding: 4px 0; }
+  .chart.dots svg { overflow: visible; }
+
+  .tip {
+    position: absolute; pointer-events: none;
+    background: var(--ink); color: var(--bg);
+    font-size: 0.8rem; font-weight: 700;
+    padding: 5px 10px; border-radius: 8px;
+    white-space: nowrap;
+    transform: translate(-50%, -100%);
+    margin-top: -8px; z-index: 2;
+    box-shadow: var(--shadow-md);
+  }
+  .tip::after {
+    content: ""; position: absolute; left: 50%; bottom: -5px;
+    transform: translateX(-50%);
+    border: 5px solid transparent;
+    border-top-color: var(--ink);
+    border-bottom: 0;
+  }
+  .meter {
+    display: inline-block; height: 8px;
+    border-radius: 0 4px 4px 0;
+    background: var(--grad-sea);
+    vertical-align: middle; margin-right: 6px;
+  }
+  .t td.bar-cell { white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .t .sub { display: block; font-size: 0.75rem; color: var(--muted); font-weight: 500; }
+
+  @media (prefers-reduced-motion: no-preference) {
+    nav.tabs a,
+    .stat,
+    .trip,
+    .thumb,
+    .chip,
+    button { will-change: transform; }
+    .fi { animation: slide-in .3s ease both; }
+    @keyframes slide-in {
+      from { opacity: 0; transform: translateX(-6px); }
+      to { opacity: 1; transform: translateX(0); }
+    }
+  }
+</style>
+</head>
+<body>
+
+<!-- SVG スプライト（アイコン定義） -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+  <defs>
+    <symbol id="icon-fish" viewBox="0 0 24 24">
+      <path d="M2 12c3-4 6-6 10-6 3 0 5 1 7 3l3-2v10l-3-2c-2 2-4 3-7 3-4 0-7-2-10-6z" fill="currentColor"/>
+      <circle cx="8" cy="11" r="1.1" fill="var(--surface,#fff)"/>
+      <path d="M14 9.5c1.2 1 1.2 4 0 5" stroke="var(--surface,#fff)" stroke-width="1" fill="none" stroke-linecap="round"/>
+    </symbol>
+    <symbol id="icon-squid" viewBox="0 0 24 24">
+      <path d="M12 2c3 0 5 2 5 5 0 2-1 4-2 5l-1 1v6l-1-2-1 2-1-2-1 2-1-2-1 2v-6l-1-1c-1-1-2-3-2-5 0-3 2-5 5-5z" fill="currentColor"/>
+      <circle cx="10" cy="7" r="1" fill="var(--surface,#fff)"/>
+      <circle cx="14" cy="7" r="1" fill="var(--surface,#fff)"/>
+    </symbol>
+    <symbol id="icon-rod" viewBox="0 0 24 24">
+      <path d="M3 21L18 4l3-1-1 3L4 22z" fill="currentColor"/>
+      <circle cx="18" cy="6" r="1.4" fill="currentColor"/>
+    </symbol>
+    <symbol id="icon-wave" viewBox="0 0 24 24">
+      <path d="M2 14c2-2 4-2 6 0s4 2 6 0 4-2 6 0v3c-2-2-4-2-6 0s-4 2-6 0-4-2-6 0zM2 7c2-2 4-2 6 0s4 2 6 0 4-2 6 0v3c-2-2-4-2-6 0s-4 2-6 0-4-2-6 0z" fill="currentColor" opacity=".85"/>
+    </symbol>
+    <symbol id="icon-sun" viewBox="0 0 24 24">
+      <circle cx="12" cy="12" r="4.5" fill="currentColor"/>
+      <g stroke="currentColor" stroke-width="1.6" stroke-linecap="round">
+        <path d="M12 2.5v2.5M12 19v2.5M2.5 12H5M19 12h2.5M5 5l1.8 1.8M17.2 17.2 19 19M5 19l1.8-1.8M17.2 6.8 19 5"/>
+      </g>
+    </symbol>
+    <symbol id="icon-moon" viewBox="0 0 24 24">
+      <path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z" fill="currentColor"/>
+    </symbol>
+    <symbol id="icon-wind" viewBox="0 0 24 24">
+      <g stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round">
+        <path d="M3 8h11a3 3 0 1 0-3-3"/>
+        <path d="M3 13h15a3 3 0 1 1-3 3"/>
+        <path d="M3 18h7"/>
+      </g>
+    </symbol>
+    <symbol id="icon-tide" viewBox="0 0 24 24">
+      <path d="M2 16c2-2 4-2 6 0s4 2 6 0 4-2 6 0v3c-2-2-4-2-6 0s-4 2-6 0-4-2-6 0z" fill="currentColor"/>
+      <path d="M12 3v8M8.5 7.5 12 11l3.5-3.5" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+    </symbol>
+    <symbol id="icon-camera" viewBox="0 0 24 24">
+      <path d="M3 8a2 2 0 0 1 2-2h2l1.5-2h7L17 6h2a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" fill="currentColor"/>
+      <circle cx="12" cy="13" r="3.5" fill="var(--surface,#fff)"/>
+      <circle cx="12" cy="13" r="2" fill="currentColor"/>
+    </symbol>
+    <symbol id="icon-star" viewBox="0 0 24 24">
+      <path d="m12 2 3 7 7 .5-5.5 4.8 1.7 7-6.2-3.7-6.2 3.7 1.7-7L2 9.5 9 9z" fill="currentColor"/>
+    </symbol>
+    <symbol id="icon-buoy" viewBox="0 0 48 48">
+      <ellipse cx="24" cy="40" rx="14" ry="3" fill="var(--sea,#00a8c6)" opacity=".25"/>
+      <path d="M24 8c-6 0-11 5-11 11s5 11 11 11 11-5 11-11S30 8 24 8z" fill="var(--accent,#ff6b35)"/>
+      <path d="M18 10c-2 2-3 5-3 9s1 7 3 9c-2-1-5-4-5-9s3-8 5-9zM30 10c2 2 3 5 3 9s-1 7-3 9c2-1 5-4 5-9s-3-8-5-9z" fill="var(--surface,#fff)" opacity=".85"/>
+      <rect x="21" y="29" width="6" height="6" rx="1" fill="var(--ink,#1a2b4a)"/>
+      <path d="M12 44c2-2 4-2 6 0s4 2 6 0 4-2 6 0 4 2 6 0" stroke="var(--sea,#00a8c6)" stroke-width="2" fill="none" stroke-linecap="round"/>
+    </symbol>
+  </defs>
+</svg>
+
+<!-- ログイン画面 -->
+<div id="auth-screen" class="auth-screen" hidden>
+  <div class="auth-card">
+    <h1 class="auth-title">釣果ノート</h1>
+    <p class="auth-sub">ログインして記録を始めましょう</p>
+    <form id="auth-form" autocomplete="on">
+      <label for="auth-email">メールアドレス
+        <input id="auth-email" type="email" required placeholder="you@example.com" autocomplete="email">
+      </label>
+      <label for="auth-pass">パスワード
+        <input id="auth-pass" type="password" required placeholder="6文字以上" minlength="6" autocomplete="current-password">
+      </label>
+      <div class="auth-actions">
+        <button type="submit" id="auth-login">ログイン</button>
+        <button type="button" class="ghost" id="auth-signup">新規登録</button>
+      </div>
+      <p class="msg err" id="auth-msg" role="alert"></p>
+    </form>
+    <p class="auth-note">アカウントは Firebase Authentication で管理されます。</p>
+  </div>
+</div>
+
+<div class="wrap" style="display:none">
+  <header>
+    <h1>釣果ノート</h1>
+    <span class="role" id="role">読み込み中…</span>
+  </header>
+
+  <div class="stats" aria-label="みんなの集計">
+    <div class="stat"><span>仲間</span><strong id="s-people">0</strong><small>人</small></div>
+    <div class="stat"><span>釣行</span><strong id="s-trips">0</strong><small>回</small></div>
+    <div class="stat"><span>合計</span><strong id="s-count">0</strong><small>匹</small></div>
+    <div class="stat"><span>ボウズ率</span><strong id="s-boz">-</strong><small id="s-boz-u"></small></div>
+  </div>
+
+  <nav class="tabs" aria-label="表示の切り替え">
+    <a href="#log" data-view="log">釣行を記録</a>
+    <a href="#trips" data-view="trips">みんなの釣行</a>
+    <a href="#stats" data-view="stats">分析</a>
+  </nav>
+
+  <!-- ===== 釣行を記録 ===== -->
+  <section class="view" id="view-log">
+    <p class="note" id="readonly-note" hidden>このノートは閲覧のみです。書き込むには、オーナーに編集者として招待してもらってください。</p>
+
+    <form id="form" autocomplete="off" hidden>
+      <div class="editing-banner" id="editing-banner" hidden>釣行の記録を編集しています</div>
+      <div class="draft-banner" id="draft-banner" hidden><span id="draft-text"></span><button type="button" class="link" id="draft-discard">入力を消す</button></div>
+
+      <div class="view">
+        <details class="sec" open>
+          <summary><span class="num">1</span>基本情報<span class="hint">いつ・どこで</span></summary>
+          <div class="grid">
+            <label for="t-date"><span class="lab-row">日付 <span class="weekday" id="weekday"></span></span><input id="t-date" type="date" data-k="date" required></label>
+            <label for="t-start">開始<input id="t-start" type="time" data-k="start"></label>
+            <label for="t-end">終了<input id="t-end" type="time" data-k="end"></label>
+            <label for="t-pref">都道府県<select id="t-pref" data-k="pref"></select></label>
+            <label for="t-place" class="wide">釣り場名（漁港・サーフ・河川名など）<input id="t-place" type="text" data-k="place" placeholder="例: 〇〇漁港" required list="dl-place"></label>
+            <label for="t-spot" class="wide"><span class="lab-row">ポイント詳細 <span class="private-toggle"><input type="checkbox" id="p-spot" data-private="spot"> 自分だけ</span></span>
+              <input id="t-spot" type="text" data-k="spot" placeholder="例: 防波堤の先端から左向き、テトラ際"></label>
+            <label for="t-companions" class="wide">同行者<input id="t-companions" type="text" data-k="companions" placeholder="単独、または名前（例: 田中さん、佐藤さん）" list="dl-people"></label>
+            <label for="t-boat">船の利用<select id="t-boat" data-k="boatType"><option value="">使っていない（陸から）</option><option>遊漁船</option><option>渡船</option></select></label>
+            <label for="t-boatname" class="boat-only">船名<input id="t-boatname" type="text" data-k="boatName" placeholder="例: 〇〇丸" list="dl-boat"></label>
+            <label for="t-boatfee" class="boat-only">料金（円）<input id="t-boatfee" type="number" min="0" step="100" inputmode="numeric" data-k="boatFee" placeholder="例: 12000"></label>
+          </div>
+        </details>
+
+        <details class="sec" id="sec-env">
+          <summary><span class="num">2</span>自然・環境条件<span class="hint">天気・風・潮・水</span></summary>
+          <div class="grid">
+            <label for="t-weather">天気<select id="t-weather" data-k="weather"><option value="">-</option><option>晴れ</option><option>晴れ時々くもり</option><option>くもり</option><option>小雨</option><option>雨</option><option>雪</option></select></label>
+            <label for="t-temp">気温（℃）<input id="t-temp" type="number" step="0.1" inputmode="decimal" data-k="temp" placeholder="例: 18"></label>
+            <label for="t-winddir">風向<select id="t-winddir" data-k="windDir"><option value="">-</option><option>無風</option><option>北</option><option>北東</option><option>東</option><option>南東</option><option>南</option><option>南西</option><option>西</option><option>北西</option></select></label>
+            <label for="t-wind">風の強さ・向き<select id="t-wind" data-k="wind"><option value="">-</option><option>弱い</option><option>やや強い</option><option>強い</option><option>向かい風</option><option>追い風</option><option>横風</option></select></label>
+            
+            <label for="t-windspeed">風速（m/s）<input id="t-windspeed" type="number" step="0.1" inputmode="decimal" placeholder="例: 4.2"></label>
+            <label for="t-wave">波高（m）<input id="t-wave" type="number" step="0.1" inputmode="decimal" placeholder="例: 0.8"></label>
+            <label for="t-pressure">気圧（hPa）<input id="t-pressure" type="number" step="0.1" inputmode="decimal" placeholder="例: 1013.2"></label>
+
+            <label for="t-tide">潮回り<select id="t-tide" data-k="tide"><option value="">-</option><option>大潮</option><option>中潮</option><option>小潮</option><option>長潮</option><option>若潮</option></select><span class="moon-hint" id="moon-hint"></span></label>
+            <label for="t-high">満潮<input id="t-high" type="time" data-k="highTide"></label>
+            <label for="t-low">干潮<input id="t-low" type="time" data-k="lowTide"></label>
+            <label for="t-current">潮の流れ<select id="t-current" data-k="current"><option value="">-</option><option>速い</option><option>普通</option><option>緩い</option><option>止まっている</option></select></label>
+            <label for="t-clarity">濁り<select id="t-clarity" data-k="clarity"><option value="">-</option><option>澄んでいる</option><option>笹濁り</option><option>濁り</option><option>泥濁り</option></select></label>
+            <label for="t-water">水温（℃ または感覚）<input id="t-water" type="text" data-k="waterTemp" placeholder="例: 19.5 / 冷たい"></label>
+            
+            <label for="t-tidestation" class="wide">潮位観測点<select id="t-tidestation" data-k="tideStationId"></select></label>
+            <label for="t-tidecurve" class="wide">
+              <span class="lab-row">潮位表（30分刻み・cm。貼り付け可）
+                <span class="moon-hint" id="tide-fill-hint"></span>
+              </span>
+              <textarea id="t-tidecurve" rows="6" placeholder="04:00 142&#10;04:30 168&#10;05:00 190"></textarea>
+            </label>
+            <label for="t-tidesource" hidden><input id="t-tidesource" type="hidden" value="manual"></label>
+
+            <a class="ext-link" id="tide-link" target="_blank" rel="noopener" href="#">この日・この場所の潮見表を探す</a>
+          </div>
+        </details>
+
+        <details class="sec" id="sec-tackle">
+          <summary><span class="num">3</span>タックル・仕掛け<span class="hint">何を使ったか</span></summary>
+          <div class="grid">
+            <div class="mytackle" id="mytackle" hidden>
+              <span class="mt-title">マイタックル</span>
+              <div class="mt-row">
+                <select id="mt-select" aria-label="マイタックルから呼び出す"><option value="">登録したタックルを呼び出す…</option></select>
+              </div>
+              <div class="mt-row">
+                <input id="mt-name" type="text" placeholder="登録名（例: エギング用）" aria-label="マイタックルの登録名">
+                <button type="button" class="ghost small" id="mt-save">今の内容を登録</button>
+              </div>
+              <div class="chips" id="mt-list"></div>
+              <span class="msg" id="mt-msg" role="status"></span>
+            </div>
+            
+            <div class="tackle-ledger" id="tackle-ledger" hidden style="grid-column: 1 / -1; background: var(--bg-2); border-radius: 14px; padding: 12px; margin-bottom: 10px;">
+              <span class="tl-title" style="font-size: 0.8rem; font-weight: 800; color: var(--sea-deep);">タックル台帳</span>
+              <div class="tl-row" style="display: flex; gap: 8px; margin-top: 6px;">
+                <select id="tl-select" aria-label="台帳から選ぶ" style="flex: 1;"><option value="">台帳から選ぶ…</option></select>
+                <button type="button" class="ghost small" id="tl-add">＋ 台帳に登録</button>
+              </div>
+              <div class="chips" id="tl-list" style="margin-top: 8px;"></div>
+            </div>
+
+            <h4>タックル</h4>
+            <label for="k-rod">ロッド<input id="k-rod" type="text" data-k="tackle.rod" placeholder="例: エギング 8.6ft" list="dl-rod"></label>
+            <label for="k-reel">リール<input id="k-reel" type="text" data-k="tackle.reel" placeholder="例: 2500番" list="dl-reel"></label>
+            <label for="k-line">ライン（素材・号数）<input id="k-line" type="text" data-k="tackle.line" placeholder="例: PE 0.8号" list="dl-line"></label>
+            <label for="k-leader">リーダー<input id="k-leader" type="text" data-k="tackle.leader" placeholder="例: フロロ 2.5号" list="dl-leader"></label>
+            <h4>ルアーの場合</h4>
+            <label for="k-lmaker">メーカー<input id="k-lmaker" type="text" data-k="tackle.lureMaker"></label>
+            <label for="k-lname">ルアー名<input id="k-lname" type="text" data-k="tackle.lureName"></label>
+            <label for="k-lcolor">カラー<input id="k-lcolor" type="text" data-k="tackle.lureColor"></label>
+            <label for="k-lweight">ウエイト（g）<input id="k-lweight" type="number" step="0.1" inputmode="decimal" data-k="tackle.lureWeight"></label>
+            <label for="k-lrange">レンジ<select id="k-lrange" data-k="tackle.lureRange"><option value="">-</option><option>表層</option><option>中層</option><option>ボトム付近</option><option>ボトム</option></select></label>
+            <h4>エサ釣りの場合</h4>
+            <label for="k-bait">エサ（種類・量）<input id="k-bait" type="text" data-k="tackle.bait" placeholder="例: アミエビ 1kg"></label>
+            <label for="k-hook">ハリ<input id="k-hook" type="text" data-k="tackle.hook" placeholder="例: チヌ 2号"></label>
+            <label for="k-rig">オモリ・ウキ<input id="k-rig" type="text" data-k="tackle.rig" placeholder="例: ガン玉 B / 円錐ウキ 0号"></label>
+          </div>
+        </details>
+
+        <details class="sec" open>
+          <summary><span class="num">4</span>釣れた魚<span class="hint" id="fish-hint">0件（ボウズ）</span></summary>
+          <div class="fish-rows" id="fish-rows"></div>
+          <div class="grid"><div class="add-row"><button type="button" class="ghost" id="add-fish">＋ 釣果を追加</button><span class="note" id="add-hint"></span></div></div>
+        </details>
+
+        <details class="sec" id="sec-review">
+          <summary><span class="num">5</span>周囲の状況と振り返り<span class="hint">次回へのメモ</span></summary>
+          <div class="grid">
+            <label for="t-around" class="wide"><span class="lab-row">周囲の状況 <span class="private-toggle"><input type="checkbox" id="p-around" data-private="surroundings"> 自分だけ</span></span>
+              <textarea id="t-around" data-k="surroundings" placeholder="釣り人の数、周りで釣れていた魚、ボイルやベイトの群れなど"></textarea></label>
+            <label for="t-review" class="wide"><span class="lab-row">反省・気づき <span class="private-toggle"><input type="checkbox" id="p-review" data-private="reflection"> 自分だけ</span></span>
+              <textarea id="t-review" data-k="reflection" placeholder="例: 朝マヅメを逃した / この潮の動きの時はタナを深くする"></textarea></label>
+            <label for="t-photos" class="wide">写真（空模様・使ったルアーなど、複数可）<input id="t-photos" type="file" accept="image/*" multiple></label>
+            <div class="previews" id="trip-previews"></div>
+          </div>
+        </details>
+      </div>
+
+      <div class="form-actions">
+        <button type="submit" id="save">釣行を保存</button>
+        <button type="button" class="ghost" id="cancel-edit" hidden>編集をやめる</button>
+        <button type="button" class="link" id="clear-form">入力を消す</button>
+        <span class="msg" id="form-msg" role="status"></span>
+      </div>
+    </form>
+
+    <datalist id="dl-place"></datalist><datalist id="dl-boat"></datalist><datalist id="dl-people"></datalist><datalist id="dl-fish"></datalist><datalist id="dl-lure"></datalist>
+    <datalist id="dl-rod"></datalist><datalist id="dl-reel"></datalist><datalist id="dl-line"></datalist><datalist id="dl-leader"></datalist>
+
+    <div class="panel" id="board-panel" hidden>
+      <h2>仲間ボード</h2>
+      <div class="table-wrap">
+        <table class="t">
+          <thead><tr><th>名前</th><th class="num">釣行</th><th class="num">ボウズ</th><th class="num">匹数</th><th class="num">最大</th></tr></thead>
+          <tbody id="board"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <details class="help">
+      <summary>仲間の招待と「自分だけ」について</summary>
+      <ul>
+        <li>右上の「共有」から、仲間をメールアドレスで招待します。書き込んでもらうには権限を「編集者」にしてください。リンク共有をオンにすると、外部の人は閲覧だけになります。</li>
+        <li>「自分だけ」にチェックした項目は、本人だけが読める場所に分けて保存されます。オーナーを含め、ほかの人には表示されません。</li>
+        <li>自分の釣行を追加・編集・削除できるのは本人だけです。オーナーは片付けのために誰の釣行でも削除できます。</li>
+      </ul>
+    </details>
+  </section>
+
+  <!-- ===== みんなの釣行 ===== -->
+  <section class="view" id="view-trips" hidden>
+    <div class="panel">
+      <div class="list-head">
+        <h2>みんなの釣行</h2>
+        <input type="search" id="filter" placeholder="魚種・釣り場で絞り込み" aria-label="絞り込み">
+        <select id="year-filter" aria-label="年で絞り込み"><option value="">すべての年</option></select>
+        <button class="ghost" id="export" type="button" hidden>CSV保存</button>
+      </div>
+      <div class="chips" id="people-chips"></div>
+      <div class="chips" id="fish-chips"></div>
+    </div>
+    <ol class="trips" id="list"></ol>
+    <button type="button" class="ghost" id="more" hidden>もっと見る</button>
+    <p class="empty" id="empty">記録を読み込んでいます…</p>
+  </section>
+
+  <!-- ===== 分析 ===== -->
+  <section class="view" id="view-stats" hidden>
+    <div class="panel">
+      <div class="controls">
+        <div class="seg" role="group" aria-label="対象">
+          <button type="button" data-scope="all" aria-pressed="true">みんな</button>
+          <button type="button" data-scope="me" aria-pressed="false">自分</button>
+        </div>
+        <select id="a-fish" aria-label="魚種"><option value="">すべての魚種</option></select>
+      </div>
+      <p class="note" id="a-summary"></p>
+    </div>
+
+    <div class="panel">
+      <h2>時間帯別のヒット数</h2>
+      <div class="chart" id="chart-hour"></div>
+      <p class="note" id="hour-note"></p>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head">
+        <h2>潮の時刻から見たヒット</h2>
+        <div class="seg" role="group" aria-label="基準" id="tide-seg"></div>
+      </div>
+      <div class="chart" id="chart-tide"></div>
+      <p class="note" id="tide-note"></p>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head">
+        <h2>条件別の釣れやすさ</h2>
+        <div class="seg" role="group" aria-label="条件" id="cond-seg"></div>
+      </div>
+      <div class="table-wrap">
+        <table class="t">
+          <thead><tr><th>条件</th><th class="num">釣行</th><th>1釣行あたり</th><th class="num">ボウズ率</th></tr></thead>
+          <tbody id="cond-table"></tbody>
+        </table>
+      </div>
+      <p class="note" id="cond-note"></p>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head">
+        <h2>何で釣れたか</h2>
+        <div class="seg" role="group" aria-label="項目" id="dim-seg"></div>
+      </div>
+      <div class="chart" id="chart-dim"></div>
+    </div>
+
+    <div class="panel">
+      <h2>月別の釣果（直近12か月）</h2>
+      <div class="chart" id="chart-month"></div>
+    </div>
+
+    <div class="panel" id="size-panel" hidden>
+      <h2 id="size-title">サイズの分布</h2>
+      <div class="chart" id="chart-size"></div>
+      <p class="note" id="size-note"></p>
+    </div>
+
+    <div class="panel">
+      <h2>魚種別レコード</h2>
+      <div class="table-wrap">
+        <table class="t">
+          <thead><tr><th>魚種</th><th class="num">仲間内の最大</th><th class="num">自己ベスト</th><th class="num">合計</th></tr></thead>
+          <tbody id="records-table"></tbody>
+        </table>
+      </div>
+      <p class="note" id="records-empty" hidden>全長を入れた記録が増えると、ここにレコードが並びます。</p>
+    </div>
+    
+    <div class="panel">
+      <h2>潮位とヒット</h2>
+      <div class="chart" id="chart-tide-scatter"></div>
+      <p class="note" id="tide-scatter-note"></p>
+    </div>
+  </section>
+</div>
+
+<div class="lightbox" id="lightbox" hidden><img id="lightbox-img" alt=""></div>
+
+<!-- Firebase SDK & Config -->
+<script type="module" src="firebase-sdk.js"></script>
+<script src="firebase-config.js"></script>
+
+<script>
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const form = $('form'), list = $('list'), empty = $('empty'), filter = $('filter');
+  const MAX_MEMBERS = 60;
+  const VIEWS = ['log', 'trips', 'stats'];
+  const PRIVATE_FIELDS = ['spot', 'surroundings', 'reflection'];
+  const WD = ['日', '月', '火', '水', '木', '金', '土'];
+  const PREFS = '北海道 青森県 岩手県 宮城県 秋田県 山形県 福島県 茨城県 栃木県 群馬県 埼玉県 千葉県 東京都 神奈川県 新潟県 富山県 石川県 福井県 山梨県 長野県 岐阜県 静岡県 愛知県 三重県 滋賀県 京都府 大阪府 兵庫県 奈良県 和歌山県 鳥取県 島根県 岡山県 広島県 山口県 徳島県 香川県 愛媛県 高知県 福岡県 佐賀県 長崎県 熊本県 大分県 宮崎県 鹿児島県 沖縄県'.split(' ');
+
+  // Firebase用変数
+  let db = null, auth = null, myId = null;
+  let canWrite = false, isOwner = false, loaded = false;
+  
+  // 既存アプリ用変数
+  let assets = null; // Step 3までnull
+  const memberSubs = new Map();
+  const tripsBy = new Map();
+  const privateBy = {};
+  const names = {};
+  let personFilter = '', fishFilter = '', armedKey = null;
+  let editing = null;
+  let fishRows = [];
+  let tripPhotos = [];
+  let myTackle = [];
+  let mtArmed = null;
+  let tackleItems = [];
+  let tackleItemsById = new Map();
+  let yearFilter = '', showLimit = 30;
+  let speciesMap = new Map();
+  let speciesById = new Map();
+  const A = { scope: 'all', fish: '', cond: 'tide', dim: 'lure', tideBase: 'highTide' };
+
+  // 定数（後で使う）
+  const MT_DOC = 'mytackle';
+  const FISH_FIELDS = [
+    ['fish', '魚種', 'text', '例: アジ', 'dl-fish'],
+    ['count', '数', 'number', '1'],
+    ['released', 'うちリリース', 'number', ''],
+    ['length', '長さ（cm）', 'number', ''],
+    ['measure', '測り方', 'select', ['', '全長', '胴長', '尾叉長']],
+    ['weight', '重量（g）', 'number', ''],
+    ['hitTime', 'ヒット時刻', 'time', '', null, true],
+    ['range', 'レンジ', 'select', ['', '表層', '中層', 'ボトム付近', 'ボトム']],
+    ['lure', '使ったルアー・エサ', 'text', 'タックル欄から自動で入ります', 'dl-lure', true],
+    ['pattern', 'ヒットパターン', 'text', '例: 2段シャクリ後のフォールで抱いた', null, true],
+    ['tackleId', '使ったタックル（台帳）', 'select-ledger', ''],
+  ];
+  const CONDS = [['tide', '潮回り'], ['clarity', '濁り'], ['current', '潮の流れ'], ['weather', '天気'], ['windDir', '風向'], ['band', '時間帯'], ['moon', '月の満ち欠け'], ['boat', '陸・船']];
+  const DIMS = [['lure', 'ルアー・エサ'], ['color', 'カラー'], ['range', 'レンジ'], ['place', '釣り場'], ['tackle', 'タックル']];
+  const BAND_ORDER = ['朝（4〜9時）', '日中（9〜15時）', '夕方（15〜19時）', '夜（19〜4時）'];
+  const ORDERS = {
+    tide: ['大潮', '中潮', '小潮', '長潮', '若潮'], clarity: ['澄んでいる', '笹濁り', '濁り', '泥濁り'],
+    current: ['速い', '普通', '緩い', '止まっている'], band: BAND_ORDER, boat: ['陸から', '遊漁船', '渡船'], moon: ['新月前後', '上弦前後', '満月前後', '下弦前後'],
+  };
+  const TIDE_BY_AGE = ['大潮', '大潮', '大潮', '中潮', '中潮', '中潮', '中潮', '小潮', '小潮', '小潮', '長潮', '若潮', '中潮', '中潮', '大潮',
+    '大潮', '大潮', '大潮', '中潮', '中潮', '中潮', '中潮', '小潮', '小潮', '小潮', '長潮', '若潮', '中潮', '中潮', '大潮'];
+  const MOON_ORDER = ['新月前後', '上弦前後', '満月前後', '下弦前後'];
+  const NO_ASSETS_TEXT = 'この画面では写真を追加できません。';
+  const SEED_SPECIES = [
+    { id: 'maaji', nameJa: 'マアジ', aliases: ['アジ','あじ','真鯵','マアジ'], icon: 'fish', unit: '匹', defaultMeasure: '尾叉長', tags: ['青物','回遊'] },
+    { id: 'aoriika', nameJa: 'アオリイカ', aliases: ['アオリ','あおりいか','障泥烏賊'], icon: 'squid', unit: '杯', defaultMeasure: '胴長', tags: ['エギング'] },
+    { id: 'suzuki', nameJa: 'スズキ', aliases: ['シーバス','せいご','セイゴ','フッコ'], icon: 'fish', unit: '匹', defaultMeasure: '全長', tags: ['シーバス'] },
+    { id: 'kurodai', nameJa: 'クロダイ', aliases: ['チヌ','黒鯛','ちぬ'], icon: 'fish', unit: '匹', defaultMeasure: '全長', tags: ['チニング'] },
+    { id: 'madai', nameJa: 'マダイ', aliases: ['タイ','鯛','真鯛'], icon: 'fish', unit: '匹', defaultMeasure: '全長', tags: ['鯛'] },
+    { id: 'buri', nameJa: 'ブリ', aliases: ['イナダ','ワラサ','はまち','ハマチ'], icon: 'fish', unit: '匹', defaultMeasure: '尾叉長', tags: ['青物'] },
+    { id: 'sagoshi', nameJa: 'サゴシ', aliases: ['サワラ','さわら','鰆'], icon: 'fish', unit: '匹', defaultMeasure: '尾叉長', tags: ['青物'] },
+    { id: 'hirame', nameJa: 'ヒラメ', aliases: ['平目','ひらめ'], icon: 'fish', unit: '匹', defaultMeasure: '全長', tags: ['フラット'] },
+    { id: 'magochi', nameJa: 'マゴチ', aliases: ['コチ','まごち'], icon: 'fish', unit: '匹', defaultMeasure: '全長', tags: ['フラット'] },
+    { id: 'kuro', nameJa: 'クロ', aliases: ['メジナ','グレ','ぐれ','尾長'], icon: 'fish', unit: '匹', defaultMeasure: '尾叉長', tags: ['磯'] },
+    { id: 'tako', nameJa: 'マダコ', aliases: ['タコ','たこ','蛸'], icon: 'squid', unit: '杯', defaultMeasure: '胴長', tags: ['タコ'] },
+    { id: 'tachiuo', nameJa: 'タチウオ', aliases: ['太刀魚','たちうお','ドラゴン'], icon: 'fish', unit: '匹', defaultMeasure: '全長', tags: ['夜釣り'] },
+  ];
+
+  // --- ヘルパー ---
+  const pad = (n) => String(n).padStart(2, '0');
+  const todayStr = () => { const d = new Date(); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; };
+  const weekday = (s) => { if (!s) return ''; const [y, m, d] = s.split('-').map(Number); return WD[new Date(y, m - 1, d).getDay()]; };
+  function el(tag, cls, text) { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
+  const nameOf = (uid) => uid === myId ? 'あなた' : (names[uid] || '仲間');
+  const allTrips = () => [...tripsBy.values()].flat();
+  const fishCount = (t) => (t.fish || []).reduce((s, f) => s + (Number(f.count) || 1), 0);
+  const getPath = (o, p) => p.split('.').reduce((a, k) => a?.[k], o);
+  function setPath(o, p, v) { const ks = p.split('.'); let a = o; ks.slice(0, -1).forEach(k => { a = a[k] ??= {}; }); a[ks.at(-1)] = v; }
+  const mapsUrl = (q) => 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(q);
+  const nowHHMM = () => { const d = new Date(); return `${pad(d.getHours())}:${pad(d.getMinutes())}`; };
+  const autoTime = () => $('t-date').value === todayStr() ? nowHHMM() : '';
+  const toMin = (hhmm) => hhmm ? Number(hhmm.slice(0, 2)) * 60 + Number(hhmm.slice(3, 5)) : null;
+  const fromMinT = (m) => { m = ((m % 1440) + 1440) % 1440; return String(Math.floor(m/60)).padStart(2,'0') + ':' + String(m%60).padStart(2,'0'); };
+  const numOrNull = (v) => v === '' || v == null ? null : Number(v);
+  
+  function durationMin(t) {
+    const a = toMin(t.start), b = toMin(t.end);
+    if (a == null || b == null) return null;
+    return b > a ? b - a : b + 1440 - a;
+  }
+  const fmtDur = (m) => m == null ? '' : `${Math.floor(m / 60)}時間${m % 60 ? (m % 60) + '分' : ''}`;
+
+  function moonAge(ds) {
+    if (!ds) return null;
+    const [y, m, d] = ds.split('-').map(Number);
+    let a = ((Date.UTC(y, m - 1, d, 3) - Date.UTC(2000, 0, 6, 18, 14)) / 864e5) % 29.530588853;
+    if (a < 0) a += 29.530588853;
+    return Math.round(a * 10) / 10;
+  }
+  const tideOf = (age) => age == null ? '' : TIDE_BY_AGE[Math.min(29, Math.floor(age))];
+  const phaseOf = (age) => age == null ? '' : age >= 26 || age < 4 ? MOON_ORDER[0] : age < 11 ? MOON_ORDER[1] : age < 19 ? MOON_ORDER[2] : MOON_ORDER[3];
+  const ageOf = (t) => t.moonAge ?? moonAge(t.date);
+  const unitOf = (name) => /イカ|いか|烏賊|タコ|たこ|蛸/.test(name || '') ? '杯' : '匹';
+  const measureOf = (f) => f.measure || (unitOf(f.fish) === '杯' ? '胴長' : '全長');
+  const bandOf = (hhmm) => { if (!hhmm) return ''; const h = Number(hhmm.slice(0, 2)); return h >= 4 && h < 9 ? BAND_ORDER[0] : h >= 9 && h < 15 ? BAND_ORDER[1] : h >= 15 && h < 19 ? BAND_ORDER[2] : BAND_ORDER[3]; };
+  const aTrips = () => allTrips().filter(t => A.scope === 'all' || t.uid === myId);
+  const aFish = (t) => (t.fish || []).filter(f => !A.fish || f.fish === A.fish);
+  const cnt = (fs) => fs.reduce((s, f) => s + (Number(f.count) || 1), 0);
+  const svgEl = (tag, attrs) => { const e = document.createElementNS('http://www.w3.org/2000/svg', tag); for (const k in attrs) e.setAttribute(k, attrs[k]); return e; };
+  const roundedTop = (x, y, w, h, r) => h <= 0 ? '' : (r = Math.min(r, h, w / 2), `M${x},${y + h}V${y + r}Q${x},${y} ${x + r},${y}H${x + w - r}Q${x + w},${y} ${x + w},${y + r}V${y + h}Z`);
+  const roundedRight = (x, y, w, h, r) => w <= 0 ? '' : (r = Math.min(r, w, h / 2), `M${x},${y}H${x + w - r}Q${x + w},${y} ${x + w},${y + r}V${y + h - r}Q${x + w},${y + h} ${x + w - r},${y + h}H${x}Z`);
+  const chartWidth = (host) => Math.max(280, Math.round(host.clientWidth || 640));
+  
+  function niceStep(max) {
+    const raw = Math.max(1, max) / 4, p = Math.pow(10, Math.floor(Math.log10(raw))), n = raw / p;
+    return Math.max(1, (n <= 1 ? 1 : n <= 2 ? 2 : n <= 5 ? 5 : 10) * p);
+  }
+
+  // アイコン関数
+  function icon(name, cls = 'ic') {
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('class', cls);
+    svg.setAttribute('aria-hidden', 'true');
+    svg.setAttribute('focusable', 'false');
+    const use = document.createElementNS('http://www.w3.org/2000/svg', 'use');
+    use.setAttribute('href', '#icon-' + name);
+    svg.append(use);
+    return svg;
+  }
+  const fishIcon = (name) => /イカ|いか|烏賊|タコ|たこ|蛸/.test(name || '') ? 'squid' : 'fish';
+
+  // --- 初期化処理 ---
+  $('t-pref').append(el('option', null, '-'), ...PREFS.map(p => el('option', null, p)));
+  $('t-pref').options[0].value = '';
+
+  function setEmpty(title, sub) {
+    empty.replaceChildren();
+    if (!title) { empty.hidden = true; return; }
+    const art = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    art.setAttribute('class', 'empty-art');
+    art.setAttribute('aria-hidden', 'true');
+    const use = document.createElementNS('http://www.w3.org/2000/svg', 'use');
+    use.setAttribute('href', '#icon-buoy');
+    art.append(use);
+    empty.append(art);
+    if (title) { const t = el('span', 'empty-title', title); empty.append(t); }
+    if (sub)   { const s = el('span', 'empty-sub', sub);   empty.append(s); }
+    empty.hidden = false;
+  }
+
+  function authErrorText(code) {
+    const m = {
+      'auth/invalid-email': 'メールアドレスの形式が正しくありません。',
+      'auth/user-not-found': 'このメールアドレスのアカウントが見つかりません。新規登録してください。',
+      'auth/wrong-password': 'パスワードが違います。',
+      'auth/invalid-credential': 'メールアドレスまたはパスワードが正しくありません。',
+      'auth/email-already-in-use': 'このメールアドレスは既に登録されています。ログインしてください。',
+      'auth/weak-password': 'パスワードは6文字以上にしてください。',
+      'auth/too-many-requests': '試行回数が多すぎます。しばらく待ってからお試しください。',
+      'auth/network-request-failed': '通信エラーです。ネットワークを確認してください。',
+      'auth/unauthorized-domain': 'このドメインはFirebaseで承認されていません。Firebase Consoleの「承認済みドメイン」にGitHub PagesのURLを追加してください。',
+    };
+    return m[code] || `ログインできませんでした（${code}）`;
+  }
+
+  // --- スキーマ正規化 ---
+  function normalizeTrip(t) {
+    const v = t.schemaVersion || 1;
+    const out = { ...t, schemaVersion: 2 };
+    out.windSpeed  ??= null;
+    out.waveHeight ??= null;
+    out.pressure   ??= null;
+    out.tideCurve  ??= null;
+    out.tideStationId ??= null;
+    out.tideSource ??= 'manual';
+    out.fish = (out.fish || []).map(f => ({
+      ...f,
+      speciesId: f.speciesId ?? null,
+      tideCm:    f.tideCm ?? null,
+      tidePhase: f.tidePhase ?? null,
+      tackleId:  f.tackleId ?? null,
+      tackleSnapshot: f.tackleSnapshot ?? null,
+    }));
+    return out;
+  }
+
+  // --- Firestore用ラッパー ---
+  const tripsOf = (uid) => window.FB.collection(db, 'catches', uid, 'trips');
+  const privCol = () => window.FB.collection(db, 'data', 'users', myId);
+
+  function startSubscriptions() {
+    if (!db || !myId) return;
+    const { collection, onSnapshot } = window.FB;
+
+    const catchesRef = collection(db, 'catches');
+    onSnapshot(catchesRef, (snap) => {
+      const ids = new Set(snap.docs.map(d => d.id));
+      ids.forEach(watchMember);
+      for (const [uid, unsub] of memberSubs) {
+        if (!ids.has(uid)) { unsub(); memberSubs.delete(uid); tripsBy.delete(uid); }
+      }
+      loaded = true;
+      setWritable(canWrite);
+      render();
+    }, (err) => {
+      console.error('catches snapshot error', err);
+      setEmpty('記録の読み込みが停止しました', 'Firestoreのルールを確認してください');
+    });
+
+    const privRef = collection(db, 'data', 'users', myId);
+    onSnapshot(privRef, (snap) => {
+      Object.keys(privateBy).forEach(k => delete privateBy[k]);
+      myTackle = [];
+      snap.docs.forEach(d => {
+        if (d.id === MT_DOC) myTackle = Array.isArray(d.data().items) ? d.data().items : [];
+        else privateBy[d.id] = d.data();
+      });
+      renderMyTackle();
+      render();
+    }, (err) => { console.warn('private snapshot error', err); });
+  }
+
+  function watchMember(uid) {
+    if (memberSubs.has(uid) || memberSubs.size >= MAX_MEMBERS) return;
+    const { collection, onSnapshot } = window.FB;
+    const tripsRef = collection(db, 'catches', uid, 'trips');
+    const unsub = onSnapshot(tripsRef, (snap) => {
+      const first = !tripsBy.has(uid);
+      tripsBy.set(uid, snap.docs.map(d => ({ id: d.id, uid, ...normalizeTrip(d.data()) })));
+      if (!(uid in names)) refreshNames(); 
+      if (first && uid === myId && !editing) applyLastTackle(false);
+      render();
+    }, (err) => { console.warn('member trips error', uid, err); });
+    memberSubs.set(uid, unsub);
+  }
+
+  async function refreshNames() {
+    for (const uid of tripsBy.keys()) {
+      if (!names[uid]) names[uid] = uid.slice(0, 6);
+    }
+    render();
+  }
+
+  function start() {
+    const { initializeApp, getAuth, onAuthStateChanged, getFirestore } = window.FB;
+    if (!window._fbApp) {
+      window._fbApp = initializeApp(window.FIREBASE_CONFIG);
+    }
+    auth = getAuth(window._fbApp);
+    db = getFirestore(window._fbApp);
+
+    onAuthStateChanged(auth, async (fbUser) => {
+      if (fbUser) {
+        myId = fbUser.uid;
+        $('auth-screen').hidden = true;
+        document.querySelector('.wrap').style.display = '';
+        
+        isOwner = false;
+        canWrite = true;
+        setWritable(canWrite);
+        renderFishRows();
+        
+        $('t-photos').disabled = true;
+        $('trip-previews').replaceChildren(el('span', 'photo-status', '写真機能は準備中です'));
+
+        startSubscriptions();
+      } else {
+        myId = null;
+        $('auth-screen').hidden = false;
+        document.querySelector('.wrap').style.display = 'none';
+        setEmpty(null);
+      }
+    });
+  }
+
+  function setWritable(on) {
+    canWrite = on;
+    form.hidden = !on;
+    $('readonly-note').hidden = on || !loaded;
+    $('role').innerHTML = isOwner ? '<b>オーナー</b>・記録できます' : on ? '<b>メンバー</b>・記録できます' : '<b>閲覧のみ</b>';
+  }
+
+  // --- 認証フォームイベント ---
+  $('auth-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const { signInWithEmailAndPassword } = window.FB;
+    const msg = $('auth-msg');
+    msg.textContent = '';
+    $('auth-login').disabled = true;
+    try {
+      await signInWithEmailAndPassword(auth, $('auth-email').value.trim(), $('auth-pass').value);
+    } catch (err) {
+      msg.textContent = authErrorText(err.code);
+    } finally {
+      $('auth-login').disabled = false;
+    }
+  });
+
+  $('auth-signup').addEventListener('click', async () => {
+    const { createUserWithEmailAndPassword } = window.FB;
+    const msg = $('auth-msg');
+    msg.textContent = '';
+    $('auth-signup').disabled = true;
+    try {
+      await createUserWithEmailAndPassword(auth, $('auth-email').value.trim(), $('auth-pass').value);
+    } catch (err) {
+      msg.textContent = authErrorText(err.code);
+    } finally {
+      $('auth-signup').disabled = false;
+    }
+  });
+
+  // --- 既存のUIイベント等（Step 1で動くようにする） ---
+  function renderFishRows() {
+    const host = $('fish-rows');
+    host.replaceChildren();
+    if (!fishRows.length) host.append(el('p', 'boz', 'まだ魚がありません。釣れなかった日は、このまま保存すると「ボウズ」として記録されます。'));
+    fishRows.forEach((row, i) => {
+      const box = el('div', 'fish-row');
+      const head = el('div', 'fr-head', `釣果 ${i + 1}`);
+      const acts = el('span', 'fr-acts');
+      const dup = el('button', 'link', '同じ条件でもう1件'); dup.type = 'button';
+      dup.onclick = () => {
+        readFishRows();
+        const d = fishRows[i].data;
+        fishRows.splice(i + 1, 0, { data: { fish: d.fish, count: 1, measure: d.measure, range: d.range, lure: d.lure, pattern: d.pattern, hitTime: autoTime() } });
+        renderFishRows(); scheduleDraft();
+        document.querySelector(`#fr-${i + 1}-length`)?.focus();
+      };
+      const rm = el('button', 'link', '外す'); rm.type = 'button';
+      rm.onclick = () => { readFishRows(); discardEntry(row.photo); fishRows.splice(i, 1); renderFishRows(); scheduleDraft(); };
+      acts.append(dup, rm); head.append(acts); box.append(head);
+      FISH_FIELDS.forEach(([k, label, type, ph, dl, wide]) => {
+        const id = `fr-${i}-${k}`;
+        const lab = el('label', wide ? 'wide' : ''); lab.htmlFor = id; lab.append(label);
+        let inp;
+        if (type === 'select') {
+          inp = el('select');
+          ph.forEach(o => { const op = el('option', null, o || (k === 'measure' ? '自動（イカは胴長）' : '-')); op.value = o; inp.append(op); });
+        } else if (type === 'select-ledger') {
+          inp = el('select');
+          inp.append(el('option', null, '（台帳なし）'));
+          [...tackleItemsById.values()].forEach(it => {
+            const o = el('option', null, `${it.name}（${it.type}）`);
+            o.value = it.id;
+            inp.append(o);
+          });
+        } else {
+          inp = el('input'); inp.type = type; if (ph) inp.placeholder = ph; if (dl) inp.setAttribute('list', dl);
+          if (type === 'number') {
+            const whole = k === 'count' || k === 'released';
+            inp.step = whole ? '1' : '0.1'; inp.min = k === 'count' ? '1' : '0'; inp.inputMode = whole ? 'numeric' : 'decimal';
+          }
+        }
+        inp.id = id; inp.dataset.f = k;
+        inp.value = row.data[k] ?? (k === 'count' ? 1 : '');
+        if (k === 'fish') inp.required = true;
+        if (k === 'hitTime') {
+          const wrap = el('span', 'time-wrap');
+          const now = el('button', 'ghost', '今'); now.type = 'button'; now.setAttribute('aria-label', 'ヒット時刻に今の時刻を入れる');
+          now.onclick = () => { inp.value = nowHHMM(); scheduleDraft(); };
+          wrap.append(inp, now); lab.append(wrap);
+        } else lab.append(inp);
+        box.append(lab);
+      });
+      const ph = el('div', 'fr-photo');
+      const fl = el('label'); fl.htmlFor = `fr-${i}-photo`; fl.append('写真（魚とメジャーなど）');
+      const fi = el('input'); fi.type = 'file'; fi.accept = 'image/*'; fi.id = `fr-${i}-photo`;
+      fi.disabled = !assets;
+      fl.append(fi); ph.append(fl);
+      const pv = el('img', 'preview'); pv.alt = '';
+      const st = el('span', 'photo-status');
+      const rmP = el('button', 'link', '写真を外す'); rmP.type = 'button';
+      const paint = () => {
+        const e = row.photo;
+        const src = e ? (e.previewUrl || '') : '';
+        pv.hidden = !src; rmP.hidden = !e; if (src) pv.src = src;
+        st.textContent = e ? (e.state === 'uploading' ? '保存中…' : e.state === 'error' ? e.error : '') : '';
+        st.className = 'photo-status' + (e?.state === 'error' ? ' err' : '');
+      };
+      fi.onchange = () => {
+        const file = fi.files[0]; fi.value = '';
+        if (!file) return;
+        discardEntry(row.photo);
+        row.photo = { file, previewUrl: URL.createObjectURL(file), state: 'pending' };
+        paint();
+      };
+      rmP.onclick = () => { discardEntry(row.photo); row.photo = null; paint(); };
+      paint();
+      ph.append(pv, st, rmP);
+      box.append(ph);
+      host.append(box);
+    });
+    $('fish-hint').textContent = fishRows.length ? `${fishRows.length}件` : '0件（ボウズ）';
+  }
+
+  function readFishRows() {
+    document.querySelectorAll('#fish-rows .fish-row').forEach((box, i) => {
+      box.querySelectorAll('[data-f]').forEach(inp => { fishRows[i].data[inp.dataset.f] = inp.value; });
+    });
+  }
+
+  // 空関数（既存コードからの呼び出しをエラーにしないため）
+  function scheduleDraft() {}
+  function discardEntry(e) {}
+  function renderTripPreviews() {}
+  function render() { /* Step 2以降で実装 */ }
+  function renderMyTackle() {}
+  function applyLastTackle() {}
+  function resetForm() {}
+  function renderStats() {}
+  function updateDerived() {}
+  function renderTackleLedger() {}
+
+  // 初期化実行
+  renderFishRows();
+  start();
+
+})();
+</script>
+</body>
+</html>
