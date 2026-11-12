@@ -1,145 +1,16 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-<meta charset="UTF-8">
-<title>釣果ノート</title>
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@400;500;700;800&family=Bebas+Neue&family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap">
-<style>
-  :root {
-    --bg: #fff8ee; --surface: #ffffff; --ink: #1a2b4a; --muted: #7a8aa8; --line: #ecdcc8;
-    --accent: #ff6b35; --accent-2: #ffb627; --accent-ink: #ffffff;
-    --sea: #00a8c6; --sea-deep: #0066a1; --sea-soft: #e0f7fa;
-    --pop-pink: #ff5d8f; --pop-purple: #8b5cf6; --danger: #e11d48;
-    --grad-sunrise: linear-gradient(135deg, #ffb627 0%, #ff6b35 55%, #ff5d8f 100%);
-    --grad-sea: linear-gradient(135deg, #00a8c6 0%, #0066a1 100%);
-    --shadow-sm: 0 1px 2px rgba(26,43,74,.06); --shadow-md: 0 2px 8px rgba(26,43,74,.07), 0 10px 24px rgba(26,43,74,.06);
-    --shadow-glow: 0 6px 20px rgba(255,107,53,.28);
-    --font-display: "M PLUS Rounded 1c", sans-serif; --font-body: "Zen Kaku Gothic New", sans-serif;
-  }
-  * { box-sizing: border-box; }
-  [hidden] { display: none !important; }
-  body { margin: 0; background: radial-gradient(1200px 420px at 50% -120px, rgba(255,182,39,.18), transparent 70%), radial-gradient(900px 500px at 50% 110%, rgba(0,168,198,.10), transparent 70%), var(--bg); background-attachment: fixed; color: var(--ink); font-family: var(--font-body); font-size: 15px; line-height: 1.65; -webkit-font-smoothing: antialiased; }
-  
-  .auth-screen { min-height: 100vh; display: grid; place-items: center; padding: 24px; }
-  .auth-card { width: 100%; max-width: 380px; background: var(--surface); border-radius: 24px; padding: 32px 28px; box-shadow: var(--shadow-md); display: grid; gap: 16px; }
-  .auth-title { font-family: var(--font-display); font-weight: 800; font-size: 1.8rem; margin: 0; text-align: center; background: var(--grad-sunrise); -webkit-background-clip: text; background-clip: text; color: transparent; }
-  .auth-sub { text-align: center; color: var(--muted); font-size: 0.85rem; margin: -8px 0 0; }
-  .auth-card label { font-size: 0.82rem; font-weight: 500; color: var(--muted); }
-  .auth-card input { font: inherit; font-size: 16px; color: var(--ink); background: var(--bg); border: 1.5px solid var(--line); border-radius: 10px; padding: 9px 12px; width: 100%; margin-top: 4px; }
-  .auth-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 4px; }
-  button { font: inherit; font-weight: 800; cursor: pointer; border-radius: 12px; padding: 10px 18px; border: 0; background: var(--grad-sunrise); color: var(--accent-ink); box-shadow: var(--shadow-glow); letter-spacing: 0.02em; }
-  button.ghost { background: var(--surface); color: var(--sea-deep); border: 1.5px solid var(--line); box-shadow: var(--shadow-sm); }
-  button:disabled { opacity: 0.5; }
-  .auth-note { font-size: 0.75rem; color: var(--muted); text-align: center; margin: 0; }
-  .msg { font-size: 0.85rem; color: var(--muted); font-weight: 600; margin: 0; }
-  .msg.err { color: var(--danger); }
-  
-  .wrap { max-width: 780px; margin: 0 auto; padding: 24px 16px 48px; display: grid; gap: 18px; }
-  header { display: flex; align-items: baseline; justify-content: space-between; }
-  h1 { font-family: var(--font-display); font-weight: 800; font-size: 2rem; margin: 0; background: var(--grad-sunrise); -webkit-background-clip: text; background-clip: text; color: transparent; }
-  h1::after { content: " 🎣"; -webkit-text-fill-color: initial; color: initial; font-size: 1.4rem; }
-  .role { font-size: 0.8rem; color: var(--muted); background: var(--surface); border-radius: 999px; padding: 3px 12px; box-shadow: var(--shadow-sm); }
-</style>
+  <meta charset="UTF-8">
+  <title>テスト</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body { font-family: sans-serif; text-align: center; padding-top: 100px; background: #fff8ee; }
+    h1 { color: #ff6b35; }
+  </style>
 </head>
 <body>
-
-<div id="auth-screen" class="auth-screen" hidden>
-  <div class="auth-card">
-    <h1 class="auth-title">釣果ノート</h1>
-    <p class="auth-sub">ログインして記録を始めましょう</p>
-    <form id="auth-form" autocomplete="on">
-      <label for="auth-email">メールアドレス
-        <input id="auth-email" type="email" required placeholder="you@example.com" autocomplete="email">
-      </label>
-      <label for="auth-pass" style="display:block; margin-top:8px;">パスワード
-        <input id="auth-pass" type="password" required placeholder="6文字以上" minlength="6" autocomplete="current-password">
-      </label>
-      <div class="auth-actions">
-        <button type="submit" id="auth-login">ログイン</button>
-        <button type="button" class="ghost" id="auth-signup">新規登録</button>
-      </div>
-      <p class="msg err" id="auth-msg" role="alert"></p>
-    </form>
-    <p class="auth-note">アカウントは Firebase Authentication で管理されます。</p>
-  </div>
-</div>
-
-<div class="wrap" id="main-app" style="display:none">
-  <header>
-    <h1>釣果ノート</h1>
-    <span class="role" id="role">読み込み中…</span>
-  </header>
-  <div style="background:var(--surface); padding:20px; border-radius:20px; box-shadow:var(--shadow-sm); text-align:center;">
-    <p style="font-weight:bold; color:var(--sea-deep);">ログインに成功しました！</p>
-    <p style="font-size:0.9rem; color:var(--muted);">ここに釣行記録の機能が入ります。</p>
-  </div>
-</div>
-
-<script type="module" src="firebase-sdk.js"></script>
-<script src="firebase-config.js"></script>
-<script>
-  // ページが読み込まれたらすぐにエラーチェックを行う
-  window.addEventListener('DOMContentLoaded', () => {
-    const msgEl = document.getElementById('auth-msg');
-    
-    // 設定ファイルの読み込みチェック
-    if (!window.FIREBASE_CONFIG || !window.FB) {
-      document.getElementById('auth-screen').hidden = false;
-      msgEl.textContent = '設定ファイル（firebase-config.js または firebase-sdk.js）が正しく読み込まれていません。ファイル名や中身を確認してください。';
-      return;
-    }
-
-    const { initializeApp, getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword } = window.FB;
-    
-    try {
-      const app = initializeApp(window.FIREBASE_CONFIG);
-      const auth = getAuth(app);
-
-      onAuthStateChanged(auth, (user) => {
-        if (user) {
-          document.getElementById('auth-screen').hidden = true;
-          document.getElementById('main-app').style.display = 'grid';
-          document.getElementById('role').innerHTML = '<b>メンバー</b>・ログイン中';
-        } else {
-          document.getElementById('auth-screen').hidden = false;
-          document.getElementById('main-app').style.display = 'none';
-        }
-      });
-
-      document.getElementById('auth-form').addEventListener('submit', async (e) => {
-        e.preventDefault();
-        msgEl.textContent = '';
-        document.getElementById('auth-login').disabled = true;
-        try {
-          await signInWithEmailAndPassword(auth, document.getElementById('auth-email').value.trim(), document.getElementById('auth-pass').value);
-        } catch (err) {
-          msgEl.textContent = 'ログイン失敗: ' + (err.code || err.message);
-        } finally {
-          document.getElementById('auth-login').disabled = false;
-        }
-      });
-
-      document.getElementById('auth-signup').addEventListener('click', async () => {
-        msgEl.textContent = '';
-        document.getElementById('auth-signup').disabled = true;
-        try {
-          await createUserWithEmailAndPassword(auth, document.getElementById('auth-email').value.trim(), document.getElementById('auth-pass').value);
-        } catch (err) {
-          msgEl.textContent = '登録失敗: ' + (err.code || err.message);
-        } finally {
-          document.getElementById('auth-signup').disabled = false;
-        }
-      });
-
-    } catch (err) {
-      document.getElementById('auth-screen').hidden = false;
-      msgEl.textContent = 'Firebaseの初期化に失敗しました。設定を確認してください。';
-      console.error(err);
-    }
-  });
-</script>
+  <h1>🎣 釣果ノート</h1>
+  <p>通信テスト成功！ここにアプリが表示されます。</p>
 </body>
 </html>
