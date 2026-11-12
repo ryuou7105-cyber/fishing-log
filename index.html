@@ -116,7 +116,8 @@
   const dd = String(today.getDate()).padStart(2, '0');
   inputDate.value = `${yyyy}-${mm}-${dd}`;
 
-  let records = JSON.parse(localStorage.getItem('fishing_records') || '[]');
+  // ここで確実に新しいキーで読み込む
+  let records = JSON.parse(localStorage.getItem('fishing_records_v2') || '[]');
 
   function render() {
     listEl.innerHTML = '';
@@ -150,7 +151,7 @@
         const idx = Number(e.target.dataset.index);
         if (confirm('この記録を削除しますか？')) {
           records.splice(idx, 1);
-          localStorage.setItem('fishing_records', JSON.stringify(records));
+          localStorage.setItem('fishing_records_v2', JSON.stringify(records));
           render();
         }
       };
@@ -170,7 +171,7 @@
 
     const newRecord = { date, place, fish, size: size || '-', id: Date.now() };
     records.push(newRecord);
-    localStorage.setItem('fishing_records', JSON.stringify(records));
+    localStorage.setItem('fishing_records_v2', JSON.stringify(records));
 
     inputPlace.value = '';
     inputFish.value = '';
@@ -179,23 +180,20 @@
     render();
   });
 
-  // CSV出力機能
+  // CSV出力機能の修正
   btnExport.addEventListener('click', () => {
     if (records.length === 0) {
       alert('出力するデータがありません。');
       return;
     }
     
-    // CSVのヘッダー
     let csvContent = "日付,釣り場,魚種,サイズ(cm)\n";
     
-    // データを追加
     records.forEach(r => {
       csvContent += `"${r.date}","${r.place}","${r.fish}","${r.size}"\n`;
     });
 
-    // ダウンロード用のファイルを作成
-    const blob = new Blob([new Uint8Array([0xEF, 0xBB, 0xBF]), csvContent], { type: 'text/csv;charset=utf-8;' }); // BOM付きでExcel対応
+    const blob = new Blob([new Uint8Array([0xEF, 0xBB, 0xBF]), csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     
     const a = document.createElement('a');
