@@ -6,42 +6,53 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@400;500;700;800&family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@400;500;700;800&family=Bebas+Neue&family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap">
   <style>
     :root {
       --bg: #fff8ee; --surface: #ffffff; --ink: #1a2b4a; --muted: #7a8aa8; --line: #ecdcc8;
       --accent: #ff6b35; --sea: #00a8c6; --sea-deep: #0066a1; --sea-soft: #e0f7fa;
+      --pop-pink: #ff5d8f; --pop-purple: #8b5cf6; --danger: #e11d48;
       --grad-sunrise: linear-gradient(135deg, #ffb627 0%, #ff6b35 55%, #ff5d8f 100%);
       --grad-sea: linear-gradient(135deg, #00a8c6 0%, #0066a1 100%);
-      --shadow-sm: 0 1px 2px rgba(26,43,74,.06); --shadow-md: 0 2px 8px rgba(26,43,74,.07), 0 10px 24px rgba(26,43,74,.06);
-      --font-display: "M PLUS Rounded 1c", sans-serif; --font-body: "Zen Kaku Gothic New", sans-serif;
+      --shadow-sm: 0 1px 2px rgba(26,43,74,.06); --shadow-md: 0 4px 16px rgba(26,43,74,.08);
+      --font-display: "M PLUS Rounded 1c", sans-serif; --font-numeric: "Bebas Neue", sans-serif; --font-body: "Zen Kaku Gothic New", sans-serif;
     }
     * { box-sizing: border-box; }
     body { margin: 0; background: radial-gradient(1200px 420px at 50% -120px, rgba(255,182,39,.18), transparent 70%), radial-gradient(900px 500px at 50% 110%, rgba(0,168,198,.10), transparent 70%), var(--bg); color: var(--ink); font-family: var(--font-body); -webkit-font-smoothing: antialiased; min-height: 100vh; }
-    .wrap { max-width: 600px; margin: 0 auto; padding: 24px 16px 48px; display: grid; gap: 18px; }
+    .wrap { max-width: 600px; margin: 0 auto; padding: 24px 16px 48px; display: grid; gap: 20px; }
+    
     header { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 10px; }
     h1 { font-family: var(--font-display); font-weight: 800; font-size: 2rem; margin: 0; background: var(--grad-sunrise); -webkit-background-clip: text; background-clip: text; color: transparent; }
     h1::after { content: " 🎣"; -webkit-text-fill-color: initial; color: initial; font-size: 1.4rem; }
+    .export-btn { background: var(--surface); color: var(--sea-deep); border: 1.5px solid var(--line); padding: 6px 12px; border-radius: 999px; font-size: 0.75rem; font-weight: 700; box-shadow: var(--shadow-sm); cursor: pointer; }
     
-    .card { background: var(--surface); border-radius: 20px; padding: 20px; box-shadow: var(--shadow-md); display: grid; gap: 16px; }
+    .card { background: var(--surface); border-radius: 24px; padding: 24px; box-shadow: var(--shadow-md); display: grid; gap: 18px; border: 1px solid var(--line); }
+    h2 { margin: 0; font-size: 1.2rem; font-family: var(--font-display); color: var(--sea-deep); display: flex; align-items: center; gap: 6px; }
+    
     label { display: grid; gap: 6px; font-size: 0.85rem; color: var(--muted); font-weight: 700; }
-    input, textarea, select { font: inherit; font-size: 16px; color: var(--ink); background: var(--bg); border: 1.5px solid var(--line); border-radius: 10px; padding: 10px 14px; width: 100%; }
-    input:focus { outline: none; border-color: var(--sea); box-shadow: 0 0 0 4px rgba(0,168,198,.15); }
+    input, select { font: inherit; font-size: 16px; color: var(--ink); background: var(--bg); border: 1.5px solid var(--line); border-radius: 12px; padding: 12px 14px; width: 100%; transition: border-color .2s, box-shadow .2s; }
+    input:focus { outline: none; border-color: var(--sea); box-shadow: 0 0 0 4px rgba(0,168,198,.15); background: var(--surface); }
     
-    button { font: inherit; font-weight: 800; cursor: pointer; border-radius: 12px; padding: 12px 20px; border: 0; background: var(--grad-sunrise); color: #fff; box-shadow: 0 6px 20px rgba(255,107,53,.28); transition: transform .1s; }
-    button:active { transform: scale(0.98); }
+    button.primary { font: inherit; font-weight: 800; cursor: pointer; border-radius: 14px; padding: 14px; border: 0; background: var(--grad-sunrise); color: #fff; box-shadow: 0 6px 20px rgba(255,107,53,.28); transition: transform .1s; font-size: 1rem; letter-spacing: 0.05em; }
+    button.primary:active { transform: scale(0.98); }
     
-    .stat-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-top: 10px; }
-    .stat { background: var(--sea-soft); border-radius: 12px; padding: 12px; text-align: center; }
-    .stat span { display: block; font-size: 0.75rem; color: var(--sea-deep); font-weight: 700; }
-    .stat strong { font-size: 1.5rem; color: var(--sea-deep); }
+    .stat-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+    .stat { background: var(--sea-soft); border-radius: 16px; padding: 16px; text-align: center; border: 1.5px solid rgba(0,168,198,.2); position: relative; overflow: hidden; }
+    .stat:nth-child(1) { border-left: 4px solid var(--sea); }
+    .stat:nth-child(2) { border-left: 4px solid var(--pop-pink); }
+    .stat span { display: block; font-size: 0.75rem; color: var(--muted); font-weight: 700; margin-bottom: 4px; }
+    .stat strong { font-family: var(--font-numeric); font-size: 2.2rem; line-height: 1; color: var(--sea-deep); letter-spacing: 0.05em; }
     
-    ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 8px; }
-    li.record-item { background: var(--bg); padding: 12px; border-radius: 10px; border: 1px solid var(--line); font-size: 0.9rem; display: flex; justify-content: space-between; align-items: center; }
-    .record-info { display: grid; gap: 2px; }
-    .record-info strong { font-size: 1rem; }
-    .record-meta { font-size: 0.75rem; color: var(--muted); }
-    .delete-btn { background: transparent; color: var(--danger); border: 1px solid var(--danger); box-shadow: none; padding: 4px 8px; font-size: 0.75rem; border-radius: 6px; }
+    ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 10px; }
+    li.record-item { background: var(--surface); padding: 16px; border-radius: 14px; border: 1px solid var(--line); display: flex; justify-content: space-between; align-items: center; box-shadow: var(--shadow-sm); transition: transform .15s; }
+    li.record-item:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); }
+    .record-info { display: grid; gap: 4px; }
+    .record-info strong { font-size: 1.1rem; color: var(--ink); display: flex; align-items: center; gap: 8px; }
+    .record-info strong::before { content: "🐟"; font-size: 0.9rem; }
+    .size-badge { background: var(--grad-sunrise); color: #fff; padding: 1px 8px; border-radius: 6px; font-family: var(--font-numeric); font-size: 1.1rem; letter-spacing: 0.05em; }
+    .record-meta { font-size: 0.8rem; color: var(--muted); font-weight: 500; }
+    .delete-btn { background: transparent; color: var(--danger); border: 1px solid var(--danger); box-shadow: none; padding: 6px 12px; font-size: 0.75rem; font-weight: 700; border-radius: 8px; cursor: pointer; }
+    .empty-state { color: var(--muted); text-align: center; padding: 20px; font-size: 0.9rem; }
   </style>
 </head>
 <body>
@@ -49,10 +60,11 @@
 <div class="wrap">
   <header>
     <h1>釣果ノート</h1>
+    <button class="export-btn" id="btn-export">CSV出力</button>
   </header>
 
   <div class="card">
-    <h2 style="margin:0; font-size:1.1rem; color:var(--sea-deep);">釣行を記録</h2>
+    <h2>🎣 釣行を記録</h2>
     
     <label>日付
       <input type="date" id="input-date">
@@ -70,17 +82,19 @@
       <input type="number" id="input-size" placeholder="例: 25">
     </label>
     
-    <button id="btn-save" type="button">記録を保存する</button>
+    <button class="primary" id="btn-save" type="button">記録を保存する</button>
   </div>
 
   <div class="card">
-    <h2 style="margin:0; font-size:1.1rem; color:var(--sea-deep);">これまでの記録</h2>
+    <h2>📊 これまでの記録</h2>
+    
     <div class="stat-grid">
-      <div class="stat"><span>合計釣行</span><strong id="stat-trips">0</strong></div>
-      <div class="stat"><span>合計匹数</span><strong id="stat-fish">0</strong></div>
+      <div class="stat"><span>合計釣行数</span><strong id="stat-trips">0</strong></div>
+      <div class="stat"><span>合計釣果数</span><strong id="stat-fish">0</strong></div>
     </div>
+    
     <ul id="list">
-      <li style="color:var(--muted); text-align:center; font-size:0.9rem; padding:10px;">まだ記録がありません</li>
+      <li class="empty-state">まだ記録がありません。上のフォームから追加してください。</li>
     </ul>
   </div>
 </div>
@@ -91,18 +105,17 @@
   const inputFish = document.getElementById('input-fish');
   const inputSize = document.getElementById('input-size');
   const btnSave = document.getElementById('btn-save');
+  const btnExport = document.getElementById('btn-export');
   const listEl = document.getElementById('list');
   const statTrips = document.getElementById('stat-trips');
   const statFish = document.getElementById('stat-fish');
 
-  // 今日の日付を最初から入れておく
   const today = new Date();
   const yyyy = today.getFullYear();
   const mm = String(today.getMonth() + 1).padStart(2, '0');
   const dd = String(today.getDate()).padStart(2, '0');
   inputDate.value = `${yyyy}-${mm}-${dd}`;
 
-  // 保存されているデータを読み込む
   let records = JSON.parse(localStorage.getItem('fishing_records') || '[]');
 
   function render() {
@@ -110,21 +123,18 @@
     let totalFish = 0;
 
     if (records.length === 0) {
-      listEl.innerHTML = '<li style="color:var(--muted); text-align:center; font-size:0.9rem; padding:10px;">まだ記録がありません</li>';
+      listEl.innerHTML = '<li class="empty-state">まだ記録がありません。上のフォームから追加してください。</li>';
     } else {
       [...records].reverse().forEach((r, index) => {
         totalFish += 1;
-        
-        const li = document.createElement('li');
-        li.className = 'record-item';
-        
-        // 実際の配列のインデックスを計算
         const realIndex = records.length - 1 - index;
 
+        const li = document.createElement('li');
+        li.className = 'record-item';
         li.innerHTML = `
           <div class="record-info">
-            <strong>${r.fish}</strong>
-            <span class="record-meta">サイズ: ${r.size}cm / ${r.date} / ${r.place}</span>
+            <strong>${r.fish} <span class="size-badge">${r.size}cm</span></strong>
+            <span class="record-meta">${r.date} / ${r.place}</span>
           </div>
           <button class="delete-btn" data-index="${realIndex}">削除</button>
         `;
@@ -135,7 +145,6 @@
     statTrips.textContent = records.length;
     statFish.textContent = totalFish;
     
-    // 削除ボタンのイベント設定
     document.querySelectorAll('.delete-btn').forEach(btn => {
       btn.onclick = (e) => {
         const idx = Number(e.target.dataset.index);
@@ -168,6 +177,34 @@
     inputSize.value = '';
 
     render();
+  });
+
+  // CSV出力機能
+  btnExport.addEventListener('click', () => {
+    if (records.length === 0) {
+      alert('出力するデータがありません。');
+      return;
+    }
+    
+    // CSVのヘッダー
+    let csvContent = "日付,釣り場,魚種,サイズ(cm)\n";
+    
+    // データを追加
+    records.forEach(r => {
+      csvContent += `"${r.date}","${r.place}","${r.fish}","${r.size}"\n`;
+    });
+
+    // ダウンロード用のファイルを作成
+    const blob = new Blob([new Uint8Array([0xEF, 0xBB, 0xBF]), csvContent], { type: 'text/csv;charset=utf-8;' }); // BOM付きでExcel対応
+    const url = URL.createObjectURL(blob);
+    
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `釣果ノート_${yyyy}${mm}${dd}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
   });
 
   render();
