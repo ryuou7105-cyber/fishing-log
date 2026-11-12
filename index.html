@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<title>釣果ノート Pro - 釣りマニアのための釣行記録</title>
+<title>釣果ノート Pro</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -94,6 +94,9 @@ li.record-item:hover { transform: translateY(-2px); box-shadow: var(--shadow-md)
 .photo-upload { border: 2px dashed var(--line); border-radius: 10px; padding: 20px; text-align: center; cursor: pointer; transition: all .2s; }
 .photo-upload:hover { border-color: var(--sea); background: var(--sea-soft); }
 .photo-preview { max-width: 100%; max-height: 150px; border-radius: 8px; margin-top: 10px; }
+.migrate-notice { background: var(--sea-soft); border: 2px solid var(--sea); border-radius: 12px; padding: 16px; margin-bottom: 16px; }
+.migrate-notice strong { color: var(--sea-deep); }
+[data-theme="dark"] .migrate-notice strong { color: var(--sea); }
 @media (max-width: 480px) {
 .form-grid, .form-grid-3 { grid-template-columns: 1fr; }
 .stat-grid { grid-template-columns: 1fr 1fr; }
@@ -106,10 +109,16 @@ li.record-item:hover { transform: translateY(-2px); box-shadow: var(--shadow-md)
 <h1>釣果ノート Pro</h1>
 <div class="header-actions">
 <button class="icon-btn" id="btn-theme" title="テーマ切替">🌙</button>
-<button class="icon-btn" id="btn-export" title="データ出力">📤</button>
-<button class="icon-btn" id="btn-import" title="データ読込">📥</button>
+<button class="icon-btn" id="btn-export" title="CSV出力">📤</button>
+<button class="icon-btn" id="btn-import" title="JSON読込">📥</button>
 </div>
 </header>
+
+<div id="migrate-banner" class="migrate-notice hidden">
+<strong>🔄 旧データが見つかりました</strong><br>
+以前の釣果ノート（v2）の記録が <span id="migrate-count">0</span> 件あります。<br>
+<button class="primary" id="btn-migrate" style="margin-top:10px;padding:10px;font-size:0.9rem">旧データを取り込む</button>
+</div>
 
 <div class="tabs">
 <div class="tab active" data-tab="record">📝 記録</div>
@@ -216,8 +225,17 @@ li.record-item:hover { transform: translateY(-2px); box-shadow: var(--shadow-md)
 <label>使用エサ・ルアー
 <input type="text" id="input-bait" placeholder="例: ジグヘッド 3g + ワーム">
 </label>
-<label>タックル
-<input type="text" id="input-tackle" placeholder="例: ロッド: 8ft / リール: 2500番 / 糸: PE1号">
+<h2 style="margin-top:8px">🎣 タックル</h2>
+<div class="form-grid">
+<label>ロッド
+<input type="text" id="input-rod" placeholder="例: ダイワ ルアーロッド 8ft">
+</label>
+<label>リール
+<input type="text" id="input-reel" placeholder="例: シマノ 2500番">
+</label>
+</div>
+<label>糸（ライン）
+<input type="text" id="input-line" placeholder="例: PE1号 + フロロカーボン2号">
 </label>
 <label>メモ
 <textarea id="input-memo" placeholder="釣果の感想、次回の課題など"></textarea>
@@ -283,25 +301,17 @@ li.record-item:hover { transform: translateY(-2px); box-shadow: var(--shadow-md)
 </div>
 </div>
 
-<!-- 編集モーダル -->
-<div class="modal" id="edit-modal">
-<div class="modal-content">
-<h2 style="margin-bottom:16px">✏️ 記録を編集</h2>
-<div id="edit-form"></div>
-<div style="display:flex;gap:10px;margin-top:16px">
-<button class="primary" id="btn-update" style="flex:1">更新</button>
-<button class="primary" id="btn-cancel-edit" style="flex:1;background:var(--line);color:var(--ink);box-shadow:none">キャンセル</button>
-</div>
-</div>
-</div>
-
 <script>
-// データ読み込み
 let records = JSON.parse(localStorage.getItem('fishing_records_v3') || '[]');
 let editingId = null;
 let currentPhoto = null;
 
-// DOM要素
+const oldRecords = JSON.parse(localStorage.getItem('fishing_records_v2') || '[]');
+if (oldRecords.length > 0 && records.length === 0) {
+document.getElementById('migrate-banner').classList.remove('hidden');
+document.getElementById('migrate-count').textContent = oldRecords.length;
+}
+
 const inputDate = document.getElementById('input-date');
 const inputTime = document.getElementById('input-time');
 const inputPlace = document.getElementById('input-place');
@@ -316,7 +326,9 @@ const inputTemp = document.getElementById('input-temp');
 const inputWaterTemp = document.getElementById('input-waterTemp');
 const inputWindSpeed = document.getElementById('input-windSpeed');
 const inputBait = document.getElementById('input-bait');
-const inputTackle = document.getElementById('input-tackle');
+const inputRod = document.getElementById('input-rod');
+const inputReel = document.getElementById('input-reel');
+const inputLine = document.getElementById('input-line');
 const inputMemo = document.getElementById('input-memo');
 const inputPhoto = document.getElementById('input-photo');
 const photoPreview = document.getElementById('photo-preview');
@@ -325,12 +337,10 @@ const listEl = document.getElementById('list');
 const filterSearch = document.getElementById('filter-search');
 const filterMethod = document.getElementById('filter-method');
 
-// 初期化
 const today = new Date();
 inputDate.value = today.toISOString().split('T')[0];
 inputCount.value = 1;
 
-// テーマ切替
 const themeBtn = document.getElementById('btn-theme');
 const savedTheme = localStorage.getItem('theme') || 'light';
 if (savedTheme === 'dark') {
@@ -350,7 +360,40 @@ themeBtn.textContent = '☀️';
 }
 };
 
-// タブ切替
+document.getElementById('btn-migrate').onclick = () => {
+if (!confirm(`旧データ ${oldRecords.length} 件を取り込みます。よろしいですか？`)) return;
+const migrated = oldRecords.map(r => ({
+id: r.id || Date.now() + Math.random(),
+date: r.date,
+timeOfDay: 'morning',
+place: r.place,
+method: '',
+fish: r.fish,
+size: parseFloat(r.size) || 0,
+count: 1,
+tide: '',
+weather: '',
+wind: '',
+temp: null,
+waterTemp: null,
+windSpeed: null,
+bait: '',
+rod: '',
+reel: '',
+line: '',
+memo: '',
+photo: null,
+createdAt: Date.now()
+}));
+records = migrated;
+localStorage.setItem('fishing_records_v3', JSON.stringify(records));
+localStorage.removeItem('fishing_records_v2');
+document.getElementById('migrate-banner').classList.add('hidden');
+renderList();
+updateDatalists();
+alert('旧データを取り込みました！');
+};
+
 document.querySelectorAll('.tab').forEach(tab => {
 tab.onclick = () => {
 document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
@@ -362,7 +405,6 @@ if (tab.dataset.tab === 'list') renderList();
 };
 });
 
-// 写真アップロード
 document.getElementById('photo-upload').onclick = () => inputPhoto.click();
 inputPhoto.onchange = (e) => {
 const file = e.target.files[0];
@@ -380,7 +422,6 @@ photoPreview.classList.remove('hidden');
 reader.readAsDataURL(file);
 };
 
-// 保存
 btnSave.onclick = () => {
 const fish = inputFish.value.trim();
 const place = inputPlace.value.trim();
@@ -404,7 +445,9 @@ temp: parseFloat(inputTemp.value) || null,
 waterTemp: parseFloat(inputWaterTemp.value) || null,
 windSpeed: parseFloat(inputWindSpeed.value) || null,
 bait: inputBait.value.trim(),
-tackle: inputTackle.value.trim(),
+rod: inputRod.value.trim(),
+reel: inputReel.value.trim(),
+line: inputLine.value.trim(),
 memo: inputMemo.value.trim(),
 photo: currentPhoto,
 createdAt: editingId ? records.find(r => r.id === editingId).createdAt : Date.now()
@@ -423,7 +466,6 @@ updateDatalists();
 alert('記録を保存しました！');
 };
 
-// フォームリセット
 function resetForm() {
 inputPlace.value = '';
 inputMethod.value = '';
@@ -437,14 +479,15 @@ inputTemp.value = '';
 inputWaterTemp.value = '';
 inputWindSpeed.value = '';
 inputBait.value = '';
-inputTackle.value = '';
+inputRod.value = '';
+inputReel.value = '';
+inputLine.value = '';
 inputMemo.value = '';
 currentPhoto = null;
 photoPreview.classList.add('hidden');
 inputPhoto.value = '';
 }
 
-// 一覧表示
 function renderList() {
 const search = filterSearch.value.toLowerCase();
 const methodFilter = filterMethod.value;
@@ -481,6 +524,7 @@ ${r.temp ? `<span class="tag">🌡️${r.temp}℃</span>` : ''}
 ${r.waterTemp ? `<span class="tag">💧${r.waterTemp}℃</span>` : ''}
 </div>
 ${r.bait ? `<div style="font-size:0.75rem;color:var(--muted);margin-top:4px">🎣 ${r.bait}</div>` : ''}
+${r.rod || r.reel || r.line ? `<div style="font-size:0.75rem;color:var(--muted);margin-top:4px">🎣 ロッド: ${r.rod || '-'} / リール: ${r.reel || '-'} / 糸: ${r.line || '-'}</div>` : ''}
 ${r.memo ? `<div style="font-size:0.75rem;color:var(--muted);margin-top:4px">💭 ${r.memo}</div>` : ''}
 </div>
 </div>
@@ -493,13 +537,11 @@ listEl.appendChild(li);
 });
 }
 
-// 釣法名取得
 function getMethodName(method) {
 const names = {lure:'ルアー',float:'ウキ釣り',casting:'投げ釣り',sabiki:'サビキ',fly:'フライ',tenkara:'テンカラ',boat:'船釣り',ice:'氷穴釣り',other:'その他'};
 return names[method] || method;
 }
 
-// 写真表示
 window.showPhoto = (id) => {
 const r = records.find(r => r.id == id);
 if (r && r.photo) {
@@ -508,7 +550,6 @@ document.getElementById('photo-modal').classList.add('active');
 }
 };
 
-// 編集
 window.editRecord = (id) => {
 const r = records.find(r => r.id === id);
 if (!r) return;
@@ -527,7 +568,9 @@ inputTemp.value = r.temp || '';
 inputWaterTemp.value = r.waterTemp || '';
 inputWindSpeed.value = r.windSpeed || '';
 inputBait.value = r.bait || '';
-inputTackle.value = r.tackle || '';
+inputRod.value = r.rod || '';
+inputReel.value = r.reel || '';
+inputLine.value = r.line || '';
 inputMemo.value = r.memo || '';
 currentPhoto = r.photo || null;
 if (currentPhoto) {
@@ -539,7 +582,6 @@ photoPreview.classList.add('hidden');
 document.querySelector('.tab[data-tab="record"]').click();
 };
 
-// 削除
 window.deleteRecord = (id) => {
 if (!confirm('この記録を削除しますか？')) return;
 records = records.filter(r => r.id !== id);
@@ -547,11 +589,9 @@ localStorage.setItem('fishing_records_v3', JSON.stringify(records));
 renderList();
 };
 
-// フィルタ
 filterSearch.oninput = renderList;
 filterMethod.onchange = renderList;
 
-// 統計表示
 function renderStats() {
 const totalTrips = records.length;
 const totalFish = records.reduce((sum, r) => sum + (r.count || 1), 0);
@@ -561,7 +601,6 @@ document.getElementById('stat-trips').textContent = totalTrips;
 document.getElementById('stat-fish').textContent = totalFish;
 document.getElementById('stat-best').textContent = bestSize;
 document.getElementById('stat-species').textContent = species;
-// 魚種別ランキング
 const fishRanking = {};
 records.forEach(r => {
 fishRanking[r.fish] = (fishRanking[r.fish] || 0) + (r.count || 1);
@@ -575,7 +614,6 @@ fishRankingEl.innerHTML = fishSorted.length ? fishSorted.map(([name, count], i) 
 <span class="count">${count}匹</span>
 </div>
 `).join('') : '<div class="empty-state">データなし</div>';
-// 釣り場別ランキング
 const placeRanking = {};
 records.forEach(r => {
 placeRanking[r.place] = (placeRanking[r.place] || 0) + (r.count || 1);
@@ -589,7 +627,6 @@ placeRankingEl.innerHTML = placeSorted.length ? placeSorted.map(([name, count], 
 <span class="count">${count}匹</span>
 </div>
 `).join('') : '<div class="empty-state">データなし</div>';
-// 月別釣果
 const monthlyData = Array(12).fill(0);
 records.forEach(r => {
 const month = new Date(r.date).getMonth();
@@ -602,7 +639,6 @@ monthlyChart.innerHTML = monthlyData.map((count, i) => `
 `).join('');
 }
 
-// データリスト更新
 function updateDatalists() {
 const places = [...new Set(records.map(r => r.place))];
 const fishes = [...new Set(records.map(r => r.fish))];
@@ -612,16 +648,15 @@ const methods = [...new Set(records.map(r => r.method).filter(m => m))];
 filterMethod.innerHTML = '<option value="">全ての釣法</option>' + methods.map(m => `<option value="${m}">${getMethodName(m)}</option>`).join('');
 }
 
-// CSV出力
 document.getElementById('btn-export').onclick = () => {
 if (records.length === 0) {
 alert('出力するデータがありません。');
 return;
 }
 const bom = new Uint8Array([0xEF, 0xBB, 0xBF]);
-let csv = '日付,時間帯,釣り場,釣法,魚種,サイズ(cm),匹数,潮周り,天気,風向,気温(℃),水温(℃),風速(m/s),エサ・ルアー,タックル,メモ\n';
+let csv = '日付,時間帯,釣り場,釣法,魚種,サイズ(cm),匹数,潮周り,天気,風向,気温(℃),水温(℃),風速(m/s),エサ・ルアー,ロッド,リール,糸,メモ\n';
 records.forEach(r => {
-csv += `"${r.date}","${r.timeOfDay}","${r.place}","${getMethodName(r.method)}","${r.fish}","${r.size}","${r.count}","${r.tide}","${r.weather}","${r.wind}","${r.temp}","${r.waterTemp}","${r.windSpeed}","${r.bait}","${r.tackle}","${r.memo}"\n`;
+csv += `"${r.date}","${r.timeOfDay}","${r.place}","${getMethodName(r.method)}","${r.fish}","${r.size}","${r.count}","${r.tide}","${r.weather}","${r.wind}","${r.temp}","${r.waterTemp}","${r.windSpeed}","${r.bait}","${r.rod}","${r.reel}","${r.line}","${r.memo}"\n`;
 });
 const blob = new Blob([bom, csv], { type: 'text/csv;charset=utf-8;' });
 const url = URL.createObjectURL(blob);
@@ -632,7 +667,6 @@ a.click();
 URL.revokeObjectURL(url);
 };
 
-// JSONエクスポート
 document.getElementById('btn-import').onclick = () => {
 const input = document.createElement('input');
 input.type = 'file';
@@ -663,7 +697,6 @@ reader.readAsText(file);
 };
 };
 
-// JSONバックアップ（エクスポートボタン長押しでJSON出力）
 let exportTimer;
 document.getElementById('btn-export').onmousedown = () => {
 exportTimer = setTimeout(() => {
@@ -680,7 +713,6 @@ URL.revokeObjectURL(url);
 document.getElementById('btn-export').onmouseup = () => clearTimeout(exportTimer);
 document.getElementById('btn-export').onmouseleave = () => clearTimeout(exportTimer);
 
-// 初期表示
 renderList();
 updateDatalists();
 </script>
