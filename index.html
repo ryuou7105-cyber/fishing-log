@@ -35,6 +35,13 @@
     .stat { background: var(--sea-soft); border-radius: 12px; padding: 12px; text-align: center; }
     .stat span { display: block; font-size: 0.75rem; color: var(--sea-deep); font-weight: 700; }
     .stat strong { font-size: 1.5rem; color: var(--sea-deep); }
+    
+    ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 8px; }
+    li.record-item { background: var(--bg); padding: 12px; border-radius: 10px; border: 1px solid var(--line); font-size: 0.9rem; display: flex; justify-content: space-between; align-items: center; }
+    .record-info { display: grid; gap: 2px; }
+    .record-info strong { font-size: 1rem; }
+    .record-meta { font-size: 0.75rem; color: var(--muted); }
+    .delete-btn { background: transparent; color: var(--danger); border: 1px solid var(--danger); box-shadow: none; padding: 4px 8px; font-size: 0.75rem; border-radius: 6px; }
   </style>
 </head>
 <body>
@@ -72,11 +79,98 @@
       <div class="stat"><span>合計釣行</span><strong id="stat-trips">0</strong></div>
       <div class="stat"><span>合計匹数</span><strong id="stat-fish">0</strong></div>
     </div>
-    <ul id="list" style="margin:0; padding:0; list-style:none; display:grid; gap:8px;">
-      <li style="color:var(--muted); text-align:center; font-size:0.9rem;">まだ記録がありません</li>
+    <ul id="list">
+      <li style="color:var(--muted); text-align:center; font-size:0.9rem; padding:10px;">まだ記録がありません</li>
     </ul>
   </div>
 </div>
 
+<script>
+  const inputDate = document.getElementById('input-date');
+  const inputPlace = document.getElementById('input-place');
+  const inputFish = document.getElementById('input-fish');
+  const inputSize = document.getElementById('input-size');
+  const btnSave = document.getElementById('btn-save');
+  const listEl = document.getElementById('list');
+  const statTrips = document.getElementById('stat-trips');
+  const statFish = document.getElementById('stat-fish');
+
+  // 今日の日付を最初から入れておく
+  const today = new Date();
+  const yyyy = today.getFullYear();
+  const mm = String(today.getMonth() + 1).padStart(2, '0');
+  const dd = String(today.getDate()).padStart(2, '0');
+  inputDate.value = `${yyyy}-${mm}-${dd}`;
+
+  // 保存されているデータを読み込む
+  let records = JSON.parse(localStorage.getItem('fishing_records') || '[]');
+
+  function render() {
+    listEl.innerHTML = '';
+    let totalFish = 0;
+
+    if (records.length === 0) {
+      listEl.innerHTML = '<li style="color:var(--muted); text-align:center; font-size:0.9rem; padding:10px;">まだ記録がありません</li>';
+    } else {
+      [...records].reverse().forEach((r, index) => {
+        totalFish += 1;
+        
+        const li = document.createElement('li');
+        li.className = 'record-item';
+        
+        // 実際の配列のインデックスを計算
+        const realIndex = records.length - 1 - index;
+
+        li.innerHTML = `
+          <div class="record-info">
+            <strong>${r.fish}</strong>
+            <span class="record-meta">サイズ: ${r.size}cm / ${r.date} / ${r.place}</span>
+          </div>
+          <button class="delete-btn" data-index="${realIndex}">削除</button>
+        `;
+        listEl.appendChild(li);
+      });
+    }
+
+    statTrips.textContent = records.length;
+    statFish.textContent = totalFish;
+    
+    // 削除ボタンのイベント設定
+    document.querySelectorAll('.delete-btn').forEach(btn => {
+      btn.onclick = (e) => {
+        const idx = Number(e.target.dataset.index);
+        if (confirm('この記録を削除しますか？')) {
+          records.splice(idx, 1);
+          localStorage.setItem('fishing_records', JSON.stringify(records));
+          render();
+        }
+      };
+    });
+  }
+
+  btnSave.addEventListener('click', () => {
+    const fish = inputFish.value.trim();
+    const place = inputPlace.value.trim();
+    const date = inputDate.value;
+    const size = inputSize.value;
+
+    if (!fish || !place) {
+      alert('「釣り場名」と「釣れた魚」は必ず入力してください！');
+      return;
+    }
+
+    const newRecord = { date, place, fish, size: size || '-', id: Date.now() };
+    records.push(newRecord);
+    localStorage.setItem('fishing_records', JSON.stringify(records));
+
+    inputPlace.value = '';
+    inputFish.value = '';
+    inputSize.value = '';
+
+    render();
+  });
+
+  render();
+</script>
 </body>
 </html>
