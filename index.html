@@ -329,3 +329,405 @@ th{color:var(--muted);font-weight:500}
 <div class="toast" id="toast"></div>
 
 <script>  
+const DB_NAME='fishing-log-pro', DB_VER=1;
+let db;
+function openDB(){return new Promise((res,rej)=>{
+  const req=indexedDB.open(DB_NAME,DB_VER);
+  req.onupgradeneeded=e=>{
+    const d=e.target.result;
+    if(!d.objectStoreNames.contains('sessions'))d.createObjectStore('sessions',{keyPath:'id'});
+    if(!d.objectStoreNames.contains('points'))d.createObjectStore('points',{keyPath:'id'});
+    if(!d.objectStoreNames.contains('presets'))d.createObjectStore('presets',{keyPath:'id'});
+    if(!d.objectStoreNames.contains('meta'))d.createObjectStore('meta',{keyPath:'key'});
+    if(!d.objectStoreNames.contains('fish'))d.createObjectStore('fish',{keyPath:'name'});
+  };
+  req.onsuccess=e=>{db=e.target.result;res(db)};
+  req.onerror=e=>rej(e);
+})}
+function tx(store,mode='readonly'){return db.transaction(store,mode).objectStore(store)}
+function idbGetAll(store){return new Promise(res=>{const r=tx(store).getAll();r.onsuccess=()=>res(r.result||[])})}
+function idbPut(store,val){return new Promise((res,rej)=>{const r=tx(store,'readwrite').put(val);r.onsuccess=()=>res();r.onerror=rej})}
+function idbDel(store,key){return new Promise(res=>{const r=tx(store,'readwrite').delete(key);r.onsuccess=()=>res()})}
+function idbGet(store,key){return new Promise(res=>{const r=tx(store).get(key);r.onsuccess=()=>res(r.result)})}
+function idbClear(store){return new Promise(res=>{const r=tx(store,'readwrite').clear();r.onsuccess=()=>res()})}
+
+let sessions=[], points=[], presets=[], fishDict=[];
+let currentPhotos=[]; 
+let currentCatches=[]; 
+let currentLatLng=null;
+let map, mapMarkers=[];
+
+const $=s=>document.querySelector(s);
+const $$=s=>document.querySelectorAll(s);
+function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,7)}
+function toast(msg){const t=$('#toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),1800)}
+function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+function todayStr(){const d=new Date();return d.toISOString().slice(0,10)}
+function nowTime(){const d=new Date();return d.toTimeString().slice(0,5)}
+
+async function init(){
+  await openDB();
+  await loadAll();
+  buildSpeciesDatalist();
+  buildSelectOptions();
+  bindTabs();
+  bindRecord();
+  bindList();
+  bindStats();
+  bindPoints();
+  bindSettings();
+  $('#fDate').value=todayStr();
+  $('#fStart').value=nowTime();
+  $('#fEnd').value=nowTime();
+  initMap();
+  renderAll();
+}
+
+async function loadAll(){
+  sessions=await idbGetAll('sessions');
+  points=await idbGetAll('points');
+  presets=await idbGetAll('presets');
+  fishDict=await idbGetAll('fish');
+}
+
+function bindTabs(){
+  $$('nav button').forEach(b=>b.onclick=()=>{
+    $$('nav button').forEach(x=>x.classList.remove('active'));
+    b.classList.add('active');
+    $$('.tab').forEach(t=>t.classList.remove('active'));
+    $('#tab-'+b.dataset.tab).classList.add('active');
+    if(b.dataset.tab==='stats')renderStats();
+    if(b.dataset.tab==='points')renderPoints();
+    if(b.dataset.tab==='settings')renderSettings();
+    if(b.dataset.tab==='list')renderSessions();
+    window.scrollTo(0,0);
+  });
+  $('#redBtn').onclick=()=>{document.body.classList.toggle('red-mode');toast('レッドライト切替')};
+  $('#exportBtn').onclick=()=>{exportJSON();};
+}
+
+function bindRecord(){
+  $('#quickAdd').onclick=()=>{
+    const sp=$('#qSpecies').value.trim();
+    if(!sp){toast('魚種を入力してください');return}
+    const sz=parseFloat($('#qSize').value)||0;
+    const ct=parseInt($('#qCount').value)||1;
+    currentCatches.push({id:uid(),species:sp,sizeCm:sz,count:ct,hitTime:'',depthM:null,lure:'',photos:[]});
+    $('#qSpecies').value='';$('#qSize').value='';$('#qCount').value='1';
+    renderCatchList();
+    toast('クイック追加しました');
+  };
+
+  $('#addCatch').onclick=()=>{
+    const sp=$('#cSpecies').value.trim();
+    if(!sp){toast('魚種を入力してください');return}
+    currentCatches.push({
+      id:uid(), species:sp, sizeCm:parseFloat($('#cSize').value)||0,
+      count:parseInt($('#cCount').value)||1, hitTime:$('#cHitTime').value||'',
+      depthM:parseFloat($('#cDepth').value)||null, lure:$('#cLure').value.trim(), photos:[]
+    });
+    $('#cSpecies').value='';$('#cSize').value='';$('#cCount').value='1';$('#cHitTime').value='';$('#cDepth').value='';$('#cLure').value='';
+    renderCatchList(); toast('キャッチを追加しました');
+  };
+
+  $('#gpsBtn').onclick=()=>{
+    if(!navigator.geolocation){toast('GPS非対応');return}
+    navigator.geolocation.getCurrentPosition(async pos=>{
+      currentLatLng={lat:pos.coords.latitude,lng:pos.coords.longitude};
+      toast('現在地を取得しました');
+      const near=points.find(p=>Math.abs(p.lat-currentLatLng.lat)<0.001&&Math.abs(p.lng-currentLatLng.lng)<0.001);
+      if(near){$('#fPointName').value=near.name;$('#fPointSel').value=near.id}
+    },err=>{toast('GPS取得失敗');console.warn(err)});
+  };
+
+  $('#autoEnv').onclick=async()=>{
+    let lat=currentLatLng?.lat, lng=currentLatLng?.lng;
+    if(!lat||!lng){
+      if(!navigator.geolocation){toast('GPS非対応');return}
+      try{
+        const pos=await new Promise((res,rej)=>navigator.geolocation.getCurrentPosition(res,rej,{timeout:8000}));
+        lat=pos.coords.latitude;lng=pos.coords.longitude;currentLatLng={lat,lng};
+      }catch(e){toast('位置情報が必要です');return}
+    }
+    try{
+      const url=`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current=temperature_2m,surface_pressure,wind_speed_10m,wind_direction_10m,weather_code&timezone=auto`;
+      const r=await fetch(url);const j=await r.json();
+      const c=j.current;
+      $('#fTemp').value=c.temperature_2m?.toFixed(1)??'';
+      $('#fPressure').value=c.surface_pressure?.toFixed(0)??'';
+      $('#fWindMs').value=c.wind_speed_10m?.toFixed(1)??'';
+      $('#fWindDir').value=windDirName(c.wind_direction_10m);
+      $('#fWeather').value=weatherCodeToText(c.weather_code);
+      const tideInfo=estimateTide(new Date(),lng);
+      $('#fTide').value=tideInfo.type;
+      toast('気象・潮汐を取得しました');
+    }catch(e){toast('取得失敗（オフライン？）');console.warn(e)}
+  };
+
+  $('#fPhotos').onchange=async e=>{
+    const files=[...e.target.files];
+    for(const f of files){
+      const data=await fileToDataURL(f);
+      currentPhotos.push(data);
+    }
+    renderPhotoPreview();
+    e.target.value='';
+  };
+
+  $('#saveSession').onclick=saveSession;
+
+  $('#fPointSel').onchange=e=>{
+    const p=points.find(x=>x.id===e.target.value);
+    if(p){$('#fPointName').value=p.name;currentLatLng={lat:p.lat,lng:p.lng}}
+  };
+  $('#fTackleSel').onchange=e=>{
+    const t=presets.find(x=>x.id===e.target.value);
+    if(t){ 
+      $('#fRod').value=t.rod||'';$('#fReel').value=t.reel||'';
+      $('#fLineType').value=t.lineType||'';$('#fLineDetail').value=t.lineDetail||'';
+      $('#fRig').value=t.rig||''; 
+    }
+  };
+}
+
+function renderCatchList(){
+  const el=$('#catchList');
+  if(!currentCatches.length){el.innerHTML='<div class="mini">キャッチ未追加</div>';return}
+  el.innerHTML=currentCatches.map(c=>`<div class="point-item" style="padding:8px;margin-bottom:4px">
+    <div><b>${esc(c.species)}</b> ${c.sizeCm||''}cm ×${c.count} ${c.hitTime?'⏰'+c.hitTime:''} ${c.lure?'🎣'+esc(c.lure):''}</div>
+    <button data-id="${c.id}">✕</button></div>`).join('');
+  el.querySelectorAll('button[data-id]').forEach(b=>b.onclick=()=>{
+    currentCatches=currentCatches.filter(c=>c.id!==b.dataset.id);renderCatchList();
+  });
+}
+
+function renderPhotoPreview(){
+  const el=$('#photoPreview');el.innerHTML='';
+  currentPhotos.forEach((p,idx)=>{
+    const div=document.createElement('div');div.className='thumb';
+    div.innerHTML=`<img src="${p}"><button class="del" data-idx="${idx}">✕</button>`;
+    el.appendChild(div);
+  });
+  el.querySelectorAll('.del').forEach(b=>b.onclick=()=>{
+    currentPhotos.splice(parseInt(b.dataset.idx),1);renderPhotoPreview();
+  });
+}
+
+async function saveSession(){
+  const spName=$('#fPointName').value.trim();
+  let pointId=$('#fPointSel').value;
+  if(spName && !pointId && currentLatLng){
+    const np={id:uid(),name:spName,lat:currentLatLng.lat,lng:currentLatLng.lng,terrainMemo:'',createdAt:Date.now()};
+    await idbPut('points',np);points.push(np);pointId=np.id;
+  }
+  const session={
+    id:uid(),schemaVersion:3, date:$('#fDate').value||todayStr(),
+    startTime:$('#fStart').value||'',endTime:$('#fEnd').value||'',
+    method:$('#fMethod').value,pointId,pointName:spName,
+    lat:currentLatLng?.lat??null,lng:currentLatLng?.lng??null,
+    tackle:{rod:$('#fRod').value,reel:$('#fReel').value,lineType:$('#fLineType').value,lineDetail:$('#fLineDetail').value,rig:$('#fRig').value},
+    weather:{
+      condition:$('#fWeather').value,tempC:parseFloat($('#fTemp').value)||null,
+      pressureHpa:parseFloat($('#fPressure').value)||null,
+      windDir:$('#fWindDir').value,windMs:parseFloat($('#fWindMs').value)||null,
+      waterTempC:parseFloat($('#fWater').value)||null
+    },
+    tide:{type:$('#fTide').value}, memo:$('#fMemo').value,
+    photos:[...currentPhotos], catches:[...currentCatches],
+    createdAt:Date.now(),updatedAt:Date.now()
+  };
+  await idbPut('sessions',session);
+  for(const c of currentCatches){ if(c.species){await idbPut('fish',{name:c.species})} }
+  await loadAll();
+  resetForm();
+  toast('保存しました');
+  renderAll();
+}
+
+function resetForm(){
+  $('#fPointName').value='';$('#fMethod').value='';$('#fTackleSel').value='';
+  $('#fRod').value='';$('#fReel').value='';$('#fLineType').value='';$('#fLineDetail').value='';$('#fRig').value='';
+  $('#fWeather').value='';$('#fTemp').value='';$('#fWindDir').value='';$('#fWindMs').value='';
+  $('#fPressure').value='';$('#fWater').value='';$('#fTide').value='';$('#fMemo').value='';
+  $('#fPhotos').value='';
+  currentPhotos=[];renderPhotoPreview();
+  currentCatches=[];renderCatchList();
+  $('#fStart').value=nowTime();$('#fEnd').value=nowTime();$('#fDate').value=todayStr();
+  currentLatLng=null;
+}
+
+function bindList(){
+  ['filterSpecies','filterMethod','filterPoint','filterTide','filterFrom','filterTo'].forEach(id=>{
+    $('#'+id).onchange=renderSessions;
+  });
+}
+function renderSessions(){
+  const fs=$('#filterSpecies').value,fm=$('#filterMethod').value,fp=$('#filterPoint').value,ft=$('#filterTide').value;
+  const ff=$('#filterFrom').value,fto=$('#filterTo').value;
+  let list=[...sessions].sort((a,b)=>b.date.localeCompare(a.date));
+  if(fs)list=list.filter(s=>s.catches.some(c=>c.species===fs));
+  if(fm)list=list.filter(s=>s.method===fm);
+  if(fp)list=list.filter(s=>s.pointId===fp);
+  if(ft)list=list.filter(s=>s.tide?.type===ft);
+  if(ff)list=list.filter(s=>s.date>=ff);
+  if(fto)list=list.filter(s=>s.date<=fto);
+
+  const el=$('#sessionList');
+  if(!list.length){el.innerHTML='<div class="empty">記録がありません</div>';return}
+  el.innerHTML=list.map(s=>{
+    const total=s.catches.reduce((a,c)=>a+(c.count||1),0);
+    const speciesSummary=s.catches.map(c=>`${esc(c.species)}${c.sizeCm?'('+c.sizeCm+'cm)':''}`).join(', ');
+    return `<div class="list-item">
+      <div class="title">${esc(s.date)} ${s.startTime?'⏰'+s.startTime:''} ${s.pointName?'📍'+esc(s.pointName):''}</div>
+      <div class="meta">${s.method?esc(s.method)+' / ':''}${s.tide?.type?esc(s.tide.type)+' / ':''}${s.weather?.condition?esc(s.weather.condition):''} ${total}匹</div>
+      <div class="meta">🐟 ${speciesSummary||'—'}</div>
+      <div><button class="btn small ghost" data-edit="${s.id}">詳細/編集</button>
+      <button class="btn small danger" data-del="${s.id}">削除</button></div>
+    </div>`;
+  }).join('');
+  el.querySelectorAll('[data-del]').forEach(b=>b.onclick=async()=>{
+    if(!confirm('削除しますか？'))return;
+    await idbDel('sessions',b.dataset.del);await loadAll();renderAll();toast('削除しました');
+  });
+  el.querySelectorAll('[data-edit]').forEach(b=>b.onclick=()=>showSessionDetail(b.dataset.edit));
+}
+
+function showSessionDetail(id){
+  const s=sessions.find(x=>x.id===id);if(!s)return;
+  const catches=(s.catches||[]).map(c=>`<div class="point-item" style="padding:8px"><div><b>${esc(c.species)}</b> ${c.sizeCm||''}cm ×${c.count} ${c.hitTime?'⏰'+c.hitTime:''} ${c.depthM?'水深'+c.depthM+'m':''} ${c.lure?'🎣'+esc(c.lure):''}</div></div>`).join('')||'<div class="mini">なし</div>';
+  const photos=(s.photos||[]).map(p=>`<img src="${p}" style="width:80px;height:80px;object-fit:cover;border-radius:8px;margin:3px">`).join('');
+  
+  const html=`<div class="modal-overlay">
+    <div class="modal-content">
+      <h2 style="margin-top:0">${esc(s.date)} の詳細</h2>
+      <div class="mini">📍${esc(s.pointName||'')} / ${esc(s.method||'')} / ${esc(s.tide?.type||'')} ${esc(s.weather?.condition||'')}</div>
+      <div class="mini">気温${s.weather?.tempC??'-'}℃ 気圧${s.weather?.pressureHpa??'-'}hPa 風${esc(s.weather?.windDir||'')}${s.weather?.windMs??''}m/s 水温${s.weather?.waterTempC??'-'}℃</div>
+      <div class="mini">タックル: ${esc(s.tackle?.rod||'')} / ${esc(s.tackle?.reel||'')} / ${esc(s.tackle?.lineType||'')}${s.tackle?.lineDetail?'('+esc(s.tackle.lineDetail)+')':''} / ${esc(s.tackle?.rig||'')}</div>
+      <h3 style="font-size:15px;margin-bottom:6px">キャッチ</h3>${catches}
+      <h3 style="font-size:15px;margin-bottom:6px">写真</h3><div>${photos||'<div class="mini">なし</div>'}</div>
+      <h3 style="font-size:15px;margin-bottom:6px">メモ</h3><div class="mini">${esc(s.memo||'')}</div>
+      <button class="btn small ghost" onclick="this.closest('.modal-overlay').remove()" style="margin-top:16px">閉じる</button>
+    </div>
+  </div>`;
+  const div=document.createElement('div');div.innerHTML=html;
+  const overlay=div.firstChild;
+  overlay.onclick=(e)=>{if(e.target===overlay)overlay.remove()};
+  document.body.appendChild(overlay);
+}
+
+function bindStats(){
+  $('#exportCSV').onclick=exportCSV;
+  $('#exportJSON').onclick=exportJSON;
+}
+function renderStats(){
+  const totalSessions=sessions.length;
+  const allCatches=sessions.flatMap(s=>s.catches||[]);
+  const totalCatches=allCatches.reduce((a,c)=>a+(c.count||1),0);
+  const best=allCatches.reduce((a,c)=>Math.max(a,c.sizeCm||0),0);
+  const speciesSet=new Set(allCatches.map(c=>c.species).filter(Boolean));
+  $('#stSessions').textContent=totalSessions;
+  $('#stCatches').textContent=totalCatches;
+  $('#stBest').textContent=best||0;
+  $('#stSpecies').textContent=speciesSet.size;
+
+  const spMap={};
+  allCatches.forEach(c=>{if(!c.species)return;spMap[c.species]=(spMap[c.species]||0)+(c.count||1)});
+  const spRank=Object.entries(spMap).sort((a,b)=>b[1]-a[1]).slice(0,15);
+  $('#speciesRank').innerHTML=spRank.length?spRank.map(([k,v],i)=>`<div class="point-item"><div>${i+1}. <b>${esc(k)}</b></div><div>${v}匹</div></div>`).join(''):'<div class="empty">記録がありません</div>';
+
+  const hourCounts=Array(24).fill(0);
+  allCatches.forEach(c=>{if(c.hitTime){const h=parseInt(c.hitTime.slice(0,2));if(!isNaN(h))hourCounts[h]+=(c.count||1)}});
+  drawBar('hourChart',hourCounts.map((v,i)=>i+':00'),hourCounts);
+
+  const tideCross={};
+  sessions.forEach(s=>{const t=s.tide?.type||'未設定';tideCross[t]=tideCross[t]||{};(s.catches||[]).forEach(c=>{if(c.species)tideCross[t][c.species]=(tideCross[t][c.species]||0)+(c.count||1)})});
+  $('#tideCross').innerHTML=Object.keys(tideCross).length?Object.entries(tideCross).map(([t,sp])=>{
+    const top=Object.entries(sp).sort((a,b)=>b[1]-a[1]).slice(0,5).map(([k,v])=>`${esc(k)}:${v}`).join(', ');
+    return `<div style="margin-bottom:6px"><b>${esc(t)}</b> → ${top}</div>`;
+  }).join(''):'<div class="empty">記録がありません</div>';
+
+  const pts=sessions.flatMap(s=>(s.catches||[]).map(c=>({x:s.weather?.pressureHpa,y:c.sizeCm}))).filter(p=>p.x&&p.y);
+  const pts2=sessions.flatMap(s=>(s.catches||[]).map(c=>({x:s.weather?.waterTempC,y:c.count}))).filter(p=>p.x&&p.y);
+  drawScatter('corrChart',pts.length?pts:pts2);
+  const r=pts.length>2?pearson(pts.map(p=>p.x),pts.map(p=>p.y)):null;
+  $('#corrText').textContent=pts.length>2?`気圧×サイズ相関 r=${r.toFixed(2)} (n=${pts.length})`:'データ不足';
+
+  const lureMap={};
+  allCatches.forEach(c=>{if(c.lure){lureMap[c.lure]=(lureMap[c.lure]||0)+(c.count||1)}});
+  const lureRank=Object.entries(lureMap).sort((a,b)=>b[1]-a[1]).slice(0,10);
+  $('#lureRank').innerHTML=lureRank.length?lureRank.map(([k,v],i)=>`<div class="point-item"><div>${i+1}. <b>${esc(k)}</b></div><div>${v}匹</div></div>`).join(''):'<div class="empty">記録がありません</div>';
+
+  const ptMap={};
+  sessions.forEach(s=>{const k=s.pointName||'未設定';ptMap[k]=ptMap[k]||{sessions:0,catches:0};(ptMap[k].sessions++);ptMap[k].catches+=(s.catches||[]).reduce((a,c)=>a+(c.count||1),0)});
+  const ptRank=Object.entries(ptMap).sort((a,b)=>(b[1].catches/b[1].sessions)-(a[1].catches/a[1].sessions)).slice(0,10);
+  $('#pointExpect').innerHTML=ptRank.length?ptRank.map(([k,v])=>`<div class="point-item"><div>📍<b>${esc(k)}</b></div><div>${(v.catches/v.sessions).toFixed(1)}匹/釣行 (${v.sessions}回)</div></div>`).join(''):'<div class="empty">記録がありません</div>';
+
+  const monthMap={};
+  sessions.forEach(s=>{const m=(s.date||'').slice(0,7);if(!m)return;monthMap[m]=(monthMap[m]||0)+(s.catches||[]).reduce((a,c)=>a+(c.count||1),0)});
+  const months=Object.keys(monthMap).sort();
+  drawBar('monthChart',months,months.map(m=>monthMap[m]));
+}
+
+let chartInstances={};
+function drawBar(canvasId,labels,data){
+  const ctx=document.getElementById(canvasId);if(!ctx)return;
+  if(chartInstances[canvasId])chartInstances[canvasId].destroy();
+  chartInstances[canvasId]=new Chart(ctx,{type:'bar',data:{labels,datasets:[{label:'匹数',data,backgroundColor:'#2ecc71'}]},
+    options:{plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#8fb3a2',font:{size:9}}},y:{ticks:{color:'#8fb3a2'}}}}});
+}
+function drawScatter(canvasId,pts){
+  const ctx=document.getElementById(canvasId);if(!ctx)return;
+  if(chartInstances[canvasId])chartInstances[canvasId].destroy();
+  chartInstances[canvasId]=new Chart(ctx,{type:'scatter',data:{datasets:[{label:'気圧×サイズ',data:pts,backgroundColor:'#3498db'}]},
+    options:{plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#8fb3a2'}},y:{ticks:{color:'#8fb3a2'}}}}});
+}
+function pearson(xs,ys){
+  const n=xs.length;const mx=xs.reduce((a,b)=>a+b,0)/n,my=ys.reduce((a,b)=>a+b,0)/n;
+  let num=0,dx=0,dy=0;
+  for(let i=0;i<n;i++){num+=(xs[i]-mx)*(ys[i]-my);dx+=(xs[i]-mx)**2;dy+=(ys[i]-my)**2}
+  return num/Math.sqrt(dx*dy);
+}
+
+function initMap(){
+  if(map)return;
+  try{
+    map=L.map('map').setView([35.0,135.0],5);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:18,attribution:'© OSM'}).addTo(map);
+  }catch(e){console.warn('地図初期化失敗',e)}
+}
+function bindPoints(){
+  $('#pAdd').onclick=async()=>{
+    const name=$('#pName').value.trim();if(!name){toast('名前を入力');return}
+    if(!currentLatLng){toast('📍GPSで位置取得してください');return}
+    const p={id:uid(),name,lat:currentLatLng.lat,lng:currentLatLng.lng,terrainMemo:'',createdAt:Date.now()};
+    await idbPut('points',p);points.push(p);$('#pName').value='';
+    await loadAll();renderPoints();buildSelectOptions();toast('ポイント追加');
+  };
+}
+function renderPoints(){
+  const el=$('#pointList');
+  el.innerHTML=points.length?points.map(p=>`<div class="point-item"><div><b>${esc(p.name)}</b><div class="mini">${p.lat.toFixed(4)}, ${p.lng.toFixed(4)}</div></div><button data-del="${p.id}">✕</button></div>`).join(''):'<div class="empty">ポイント未登録</div>';
+  el.querySelectorAll('[data-del]').forEach(b=>b.onclick=async()=>{
+    await idbDel('points',b.dataset.del);await loadAll();renderPoints();buildSelectOptions();
+  });
+  if(map){
+    mapMarkers.forEach(m=>map.removeLayer(m));mapMarkers=[];
+    points.forEach(p=>{const m=L.marker([p.lat,p.lng]).addTo(map).bindPopup(esc(p.name));mapMarkers.push(m)});
+    if(points.length)map.fitBounds(mapMarkers.map(m=>m.getLatLng()),{maxZoom:12});
+  }
+}
+
+function bindSettings(){
+  $('#presetAdd').onclick=async()=>{
+    const name=$('#presetName').value.trim();if(!name){toast('名前を入力');return}
+    const p={
+      id:uid(),name,
+      rod:$('#presetRod').value.trim(),
+      reel:$('#presetReel').value.trim(),
+      lineType:$('#presetLineType').value,
+      lineDetail:$('#presetLineDetail').value.trim(),
+      rig:$('#presetRig').value.trim()
+    };
+    await idbPut('presets',p);
+    await loadAll();
+    $('#presetName').value='';$(
