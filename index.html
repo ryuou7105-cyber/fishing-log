@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+ん<!DOCTYPE html>
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
@@ -716,7 +716,6 @@ function renderPoints(){
     if(points.length)map.fitBounds(mapMarkers.map(m=>m.getLatLng()),{maxZoom:12});
   }
 }
-
 function bindSettings(){
   $('#presetAdd').onclick=async()=>{
     const name=$('#presetName').value.trim();if(!name){toast('名前を入力');return}
@@ -730,4 +729,126 @@ function bindSettings(){
     };
     await idbPut('presets',p);
     await loadAll();
-    $('#presetName').value='';$(
+    $('#presetName').value='';$('#presetRod').value='';$('#presetReel').value='';$('#presetLineType').value='';$('#presetLineDetail').value='';$('#presetRig').value='';
+    renderSettings();buildSelectOptions();toast('追加しました');
+  };
+  $('#fishAddBtn').onclick=async()=>{
+    const n=$('#fishAdd').value.trim();if(!n)return;
+    await idbPut('fish',{name:n});await loadAll();$('#fishAdd').value='';renderSettings();buildSpeciesDatalist();toast('追加しました');
+  };
+  $('#migrateBtn').onclick=migrateOldData;
+  $('#exportAll').onclick=exportJSON;
+  $('#clearAll').onclick=async()=>{
+    if(!confirm('全データ削除しますか？'))return;
+    for(const st of ['sessions','points','presets','fish'])await idbClear(st);
+    await loadAll();renderAll();toast('削除しました');
+  };
+}
+function renderSettings(){
+  const pl=$('#presetList');
+  pl.innerHTML=presets.length?presets.map(p=>`<div class="point-item"><div><b>${esc(p.name)}</b><div class="mini">${esc(p.rod||'')} ${esc(p.lineType||'')}${esc(p.lineDetail||'')}</div></div><button data-del="${p.id}">✕</button></div>`).join(''):'<div class="empty">プリセットなし</div>';
+  pl.querySelectorAll('[data-del]').forEach(b=>b.onclick=async()=>{await idbDel('presets',b.dataset.del);await loadAll();renderSettings();buildSelectOptions()});
+  
+  const fl=$('#fishList');
+  fl.innerHTML=fishDict.length?fishDict.map(f=>`<span class="chip">${esc(f.name)}</span>`).join(''):'辞書は空です';
+}
+
+function buildSpeciesDatalist(){
+  const dl=$('#speciesList');
+  dl.innerHTML=fishDict.map(f=>`<option value="${esc(f.name)}">`).join('');
+}
+function buildSelectOptions(){
+  const ps=$('#fPointSel');ps.innerHTML='<option value="">登録ポイントから選択</option>'+points.map(p=>`<option value="${p.id}">${esc(p.name)}</option>`).join('');
+  const fp=$('#filterPoint');fp.innerHTML='<option value="">全ポイント</option>'+points.map(p=>`<option value="${p.id}">${esc(p.name)}</option>`).join('');
+  const ts=$('#fTackleSel');ts.innerHTML='<option value="">プリセットなし</option>'+presets.map(p=>`<option value="${p.id}">${esc(p.name)}</option>`).join('');
+  
+  const allSp=[...new Set(sessions.flatMap(s=>(s.catches||[]).map(c=>c.species)).filter(Boolean))];
+  const fs=$('#filterSpecies');fs.innerHTML='<option value="">全魚種</option>'+allSp.map(s=>`<option>${esc(s)}</option>`).join('');
+  const fm=$('#filterMethod');fm.innerHTML='<option value="">全釣法</option>'+['ルアー','ウキ釣り','投げ釣り','サビキ','フライ','テンカラ','船釣り','氷穴釣り','その他'].map(m=>`<option>${m}</option>`).join('');
+  const ft=$('#filterTide');ft.innerHTML='<option value="">全潮周り</option>'+['大潮','中潮','小潮','長潮','若潮'].map(t=>`<option>${t}</option>`).join('');
+}
+
+function windDirName(deg){
+  if(deg==null)return'';
+  const dirs=['北','北東','東','南東','南','南西','西','北西'];
+  return dirs[Math.round(deg/45)%8];
+}
+function weatherCodeToText(code){
+  if(code==null)return'';
+  if(code===0)return'☀️ 晴れ';
+  if([1,2,3].includes(code))return'☁️ 曇り';
+  if([45,48].includes(code))return'🌫️ 霧';
+  if([51,53,55,61,63,65,80,81,82].includes(code))return'🌧️ 雨';
+  if([71,73,75,77,85,86].includes(code))return'🌨️ 雪';
+  return'';
+}
+function estimateTide(date,lng){
+  const synodic=29.530588853;
+  const known=new Date('2000-01-06T18:14:00Z').getTime();
+  const age=(((date.getTime()-known)/86400000)%synodic+synodic)%synodic;
+  let type='中潮';
+  if(age<1.8||age>synodic-1.8)type='大潮';
+  else if(Math.abs(age-synodic/2)<1.8)type='大潮';
+  else if(Math.abs(age-synodic/4)<2||Math.abs(age-3*synodic/4)<2)type='小潮';
+  else if(Math.abs(age-synodic/2)<2.5)type='長潮';
+  else type='中潮';
+  return {type,age};
+}
+
+function exportJSON(){
+  const data={schemaVersion:3,exportedAt:new Date().toISOString(),sessions,points,presets,fish:fishDict};
+  download('fishing-log-pro-'+Date.now()+'.json',JSON.stringify(data,null,2),'application/json');
+}
+function exportCSV(){
+  const rows=[['date','start','end','method','point','tide','weather','tempC','pressure','windDir','windMs','waterTempC','species','sizeCm','count','hitTime','depthM','lure','memo']];
+  sessions.forEach(s=>{
+    (s.catches||[]).forEach(c=>{
+      rows.push([s.date,s.startTime,s.endTime,s.method,s.pointName,s.tide?.type,s.weather?.condition,
+        s.weather?.tempC,s.weather?.pressureHpa,s.weather?.windDir,s.weather?.windMs,s.weather?.waterTempC,
+        c.species,c.sizeCm,c.count,c.hitTime,c.depthM,c.lure,s.memo]);
+    });
+  });
+  const csv=rows.map(r=>r.map(v=>{
+    const s=String(v??'');return /[",\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s;
+  }).join(',')).join('\n');
+  download('fishing-log-'+Date.now()+'.csv',csv,'text/csv');
+}
+function download(name,content,type){
+  const blob=new Blob([content],{type});const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+}
+async function migrateOldData(){
+  const keys=Object.keys(localStorage).filter(k=>/fish|log|catch/i.test(k));
+  let count=0;
+  for(const k of keys){
+    try{
+      const v=JSON.parse(localStorage.getItem(k));
+      const arr=Array.isArray(v)?v:(v.records||v.logs||[]);
+      for(const r of arr){
+        const session={
+          id:uid(),schemaVersion:3,date:r.date||todayStr(),startTime:r.time||'',endTime:'',
+          method:r.method||'',pointId:null,pointName:r.point||r.spot||'',lat:null,lng:null,
+          tackle:{rod:r.rod||'',reel:r.reel||'',lineType:r.lineType||'',lineDetail:r.lineDetail||'',rig:r.rig||''},
+          weather:{condition:r.weather||'',tempC:null,pressureHpa:null,windDir:r.windDir||'',windMs:null,waterTempC:r.waterTempC||null},
+          tide:{type:r.tide||''},memo:r.memo||'',photos:[],catches:[],createdAt:Date.now(),updatedAt:Date.now()
+        };
+        if(r.species||r.size){
+          session.catches.push({id:uid(),species:r.species||'',sizeCm:parseFloat(r.size)||0,count:parseInt(r.count)||1,hitTime:'',depthM:null,lure:'',photos:[]});
+        }
+        await idbPut('sessions',session);count++;
+      }
+    }catch(e){}
+  }
+  await loadAll();renderAll();
+  toast(count?`${count}件取り込みました`:'旧データなし');
+}
+
+function renderAll(){
+  renderSessions();renderStats();renderPoints();renderSettings();buildSelectOptions();buildSpeciesDatalist();
+}
+function fileToDataURL(file){return new Promise(res=>{const r=new FileReader();r.onload=()=>res(r.result);r.readAsDataURL(file)})}
+
+init();
+</script>
+</body>
+</html>
