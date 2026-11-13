@@ -1325,6 +1325,71 @@ function buildCaption(s,o,comment){
   }
   return L.join('\n');
 }
+/* 釣果カード: 投稿文を画像にする（Instagramは画像が必須で、文章が引き継がれないため） */
+function loadImg(src){return new Promise((res,rej)=>{const i=new Image();i.onload=()=>res(i);i.onerror=rej;i.src=src})}
+function wrapLines(ctx,text,maxW){
+  const out=[];
+  String(text).split('\n').forEach(par=>{
+    if(!par){out.push('');return}
+    let line='';
+    for(const ch of Array.from(par)){
+      if(ctx.measureText(line+ch).width>maxW&&line){
+        // 行頭に句読点が来ないように
+        if(/^[、。）」』！？・]$/.test(ch)){line+=ch;out.push(line);line='';continue}
+        out.push(line);line=ch;
+      }else line+=ch;
+    }
+    if(line)out.push(line);
+  });
+  return out;
+}
+async function drawCard(s,o,comment,photo){
+  const W=1080,H=1350,cv=document.createElement('canvas');cv.width=W;cv.height=H;
+  const x=cv.getContext('2d'),F='"Hiragino Sans","Noto Sans JP","Noto Sans CJK JP",sans-serif';
+  const g=x.createLinearGradient(0,0,0,H);g.addColorStop(0,'#0e3a2b');g.addColorStop(1,'#071a13');x.fillStyle=g;x.fillRect(0,0,W,H);
+  let top=0;
+  if(photo){                                // 写真を上半分に（中央で切り抜き）
+    try{const im=await loadImg(photo),ph=560,sc=Math.max(W/im.width,ph/im.height),w=im.width*sc,h=im.height*sc;
+      x.save();x.beginPath();x.rect(0,0,W,ph);x.clip();x.drawImage(im,(W-w)/2,(ph-h)/2,w,h);x.restore();
+      const sh=x.createLinearGradient(0,ph-160,0,ph);sh.addColorStop(0,'rgba(7,26,19,0)');sh.addColorStop(1,'#0b2c21');x.fillStyle=sh;x.fillRect(0,ph-160,W,160);
+      top=ph;}catch(e){}
+  }
+  const P=72,maxW=W-P*2;let y=top+(top?20:190);
+  const d=new Date(s.date+'T12:00:00');
+  x.textBaseline='top';
+  x.fillStyle='#8fd3ad';x.font=`600 40px ${F}`;
+  x.fillText(`${d.getFullYear()}.${d.getMonth()+1}.${d.getDate()} (${'日月火水木金土'[d.getDay()]})`,P,y);y+=60;
+  const where=[o.place&&s.pointName?s.pointName:'',o.boat&&s.boat?s.boat:''].filter(Boolean).join('  /  ');
+  if(where){x.fillStyle='#e8f5ee';x.font=`700 46px ${F}`;for(const l of wrapLines(x,'📍 '+where,maxW).slice(0,2)){x.fillText(l,P,y);y+=62}}
+  if(s.method){x.fillStyle='#8fb3a2';x.font=`500 36px ${F}`;x.fillText(s.method,P,y);y+=56}
+  y+=14;x.fillStyle='#2ecc71';x.fillRect(P,y,120,6);y+=34;
+  // 釣果（いちばん大きく）
+  const {fish}=captionParts(s,o);
+  x.fillStyle='#ffffff';
+  const fl=fish.length?fish.map(f=>`${f.name} ${f.n}匹${f.size?'  '+f.size:''}`):['ボウズ…'];
+  const big=(fl.length<=2?78:fl.length<=4?60:48)-(top?10:0);
+  x.font=`800 ${big}px ${F}`;
+  for(const l of fl.slice(0,6)){for(const w of wrapLines(x,l,maxW)){x.fillText(w,P,y);y+=big*1.3}}
+  y+=20;
+  // 詳細
+  const det=[];
+  if(o.tackle){
+    const tk=[s.tackle.rod,s.tackle.reel,[s.tackle.lineType,s.tackle.lineDetail].filter(Boolean).join(' ')].map(v=>(v||'').trim()).filter(Boolean).join(' / ');
+    if(tk)det.push('🎣 '+tk);
+    const lures=uniq(s.catches.map(c=>c.lure)).slice(0,3).join('、');if(lures)det.push('🪝 '+lures);
+  }
+  if(o.weather){const w=s.weather,wx=(w.condition||'').replace(/^\S+\s/,'');
+    const t=[wx,w.windDir?(w.windDir==='無風'?'無風':`${w.windDir} ${w.windMs!=null?w.windMs+'m':''}`):'',s.tide.type,w.waterTempC!=null?`水温${w.waterTempC}℃`:''].filter(Boolean).join('・');
+    if(t)det.push('🌤 '+t)}
+  x.font=`500 36px ${F}`;x.fillStyle='#cfe8db';
+  for(const l of det){for(const w of wrapLines(x,l,maxW).slice(0,2)){if(y>H-150)break;x.fillText(w,P,y);y+=50}}
+  if(comment&&comment.trim()&&y<H-180){
+    y+=24;x.font=`600 40px ${F}`;x.fillStyle='#ffffff';
+    for(const w of wrapLines(x,comment.trim(),maxW)){if(y>H-130)break;x.fillText(w,P,y);y+=56}
+  }
+  x.font=`500 28px ${F}`;x.fillStyle='rgba(143,179,162,.7)';x.textAlign='right';x.fillText('🎣 釣果ノート',W-P,H-56);
+  return cv.toDataURL('image/jpeg',0.9);
+}
 async function dataUrlToFile(u,name){const b=await (await fetch(u)).blob();return new File([b],name,{type:b.type||'image/jpeg'})}
 function offerShare(id){
   const el=$('#bannerArea'),d=document.createElement('div');d.className='banner';
@@ -1336,7 +1401,7 @@ function offerShare(id){
 function openShare(id){
   const s=sessions.find(x=>x.id===id);if(!s)return;
   const o=shareOpts();
-  const picked=s.photos.map((_,i)=>i<10);            // Instagramは1投稿10枚まで
+  const picked=s.photos.map(()=>false);           // 写真は自分で選ぶ（カードの上に載ります）
   const chk=(k,label,show=true)=>show?`<label class="chk" style="margin-top:6px"><input type="checkbox" data-k="${k}" ${o[k]?'checked':''}>${label}</label>`:'';
   const m=openModal(`
     <h2 style="margin:0 0 4px;font-size:16px">📣 SNSに投稿</h2>
@@ -1349,11 +1414,15 @@ function openShare(id){
     <label>コメント</label><textarea id="shComment" placeholder="ひとこと（釣行メモとは別なので、ヒットパターンは公開されません）"></textarea>
     <label>いつも付けるハッシュタグ</label><input id="shTags" value="${esc(o.tagText)}">
     <label>投稿文（ここで自由に直せます）</label><textarea id="shText" style="min-height:190px;font-size:14px"></textarea>
-    ${s.photos.length?`<label>写真（タップで選択／解除）</label><div class="photo-preview" id="shPhotos">${s.photos.map((p,i)=>`<div class="thumb" data-i="${i}" style="width:72px;height:72px"><img src="${p}"></div>`).join('')}</div>`:'<div class="mini" style="margin-top:8px">写真がありません。Instagramは写真が必須なので、先に「編集」で写真を追加してください（Facebookは文章だけでも投稿できます）</div>'}
-    <button class="btn" id="shCopy">📋 この文章をコピー</button>
-    <button class="btn small ghost" id="shGo">📤 写真と一緒にアプリへ送る（Instagram・Facebook…）</button>
+    <label>投稿する画像（Instagram用。文章を画像にしたものです）</label>
+    <img id="shCard" style="width:100%;border-radius:8px;border:1px solid var(--line);display:block">
+    ${s.photos.length?`<label>魚の写真を載せる（タップで選択。1枚目がカードの上に入り、2枚目以降は別の画像として付きます）</label><div class="photo-preview" id="shPhotos">${s.photos.map((p,i)=>`<div class="thumb" data-i="${i}" style="width:72px;height:72px"><img src="${p}"></div>`).join('')}</div>`:''}
+    <label class="chk"><input type="checkbox" id="shUseCard" checked>文章の画像（カード）を付ける</label>
+    <button class="btn" id="shGo">📷 Instagramなどへ送る（画像＋文章）</button>
+    <button class="btn small ghost" id="shCopy">📋 文章だけコピー（Facebook向け）</button>
+    <button class="btn small ghost" id="shSave">💾 カード画像を保存</button>
     <button class="btn small ghost" id="shClose">閉じる</button>
-    <div class="mini" id="shNote" style="margin-top:8px">コピーした文章は、InstagramやFacebookの投稿欄を長押しして「貼り付け」できます。</div>`);
+    <div class="mini" id="shNote" style="margin-top:8px">Instagramは文章が自動で入りません。送ると文章もコピーされるので、キャプション欄を長押しして「貼り付け」してください。</div>`);
   const q=x=>m.querySelector(x);
   let edited=false;
   let style=o.style==='list'?'list':'prose';
@@ -1361,14 +1430,20 @@ function openShare(id){
   const paintStyle=()=>m.querySelectorAll('#shStyle button').forEach(b=>b.classList.toggle('on',b.dataset.st===style));
   m.querySelectorAll('#shStyle button').forEach(b=>b.onclick=()=>{if(edited&&!confirm('投稿文を作り直します（手直しした内容は消えます）。よろしいですか？'))return;style=b.dataset.st;paintStyle();regen()});
   const regen=()=>{q('#shText').value=buildCaption(s,cur(),q('#shComment').value);edited=false;
-    const r=cur();localStorage.setItem('flp-share',JSON.stringify(r))};
-  const paint=()=>m.querySelectorAll('#shPhotos .thumb').forEach(t=>{t.style.opacity=picked[+t.dataset.i]?'1':'.25';t.style.outline=picked[+t.dataset.i]?'2px solid var(--accent)':'none'});
+    const r=cur();localStorage.setItem('flp-share',JSON.stringify(r));renderCard()};
+  let order=[];                                   // 選んだ順
+  const paint=()=>m.querySelectorAll('#shPhotos .thumb').forEach(t=>{const k=order.indexOf(+t.dataset.i);t.style.opacity=k>=0?'1':'.35';t.style.outline=k>=0?'3px solid var(--accent)':'none';t.title=k>=0?(k+1)+'枚目':''});
+  let cardUrl='',cardTimer;
+  const renderCard=()=>{clearTimeout(cardTimer);cardTimer=setTimeout(async()=>{cardUrl=await drawCard(s,cur(),q('#shComment').value,order.length?s.photos[order[0]]:null);q('#shCard').src=cardUrl},150)};
   m.querySelectorAll('[data-k]').forEach(c=>c.onchange=()=>{if(edited&&!confirm('投稿文を作り直します（手直しした内容は消えます）。よろしいですか？')){c.checked=!c.checked;return}regen()});
-  q('#shComment').oninput=q('#shTags').oninput=()=>{if(!edited)regen()};
+  q('#shComment').oninput=q('#shTags').oninput=()=>{if(!edited)regen();else renderCard()};
   q('#shText').oninput=()=>{edited=true};
-  m.querySelectorAll('#shPhotos .thumb').forEach(t=>t.onclick=()=>{const i=+t.dataset.i;
-    if(!picked[i]&&picked.filter(Boolean).length>=10){toast('写真は10枚までです');return}
-    picked[i]=!picked[i];paint()});
+  m.querySelectorAll('#shPhotos .thumb').forEach(t=>t.onclick=()=>{const i=+t.dataset.i,k=order.indexOf(i);
+    if(k>=0)order.splice(k,1);
+    else{if(order.length>=9){toast('写真は9枚までです（カードと合わせて10枚）');return}order.push(i)}
+    paint();renderCard()});
+  q('#shSave').onclick=async()=>{if(!cardUrl)cardUrl=await drawCard(s,cur(),q('#shComment').value,order.length?s.photos[order[0]]:null);
+    const a=document.createElement('a');a.href=cardUrl;a.download=`chouka-card-${s.date}.jpg`;document.body.appendChild(a);a.click();a.remove();toast('カード画像を保存しました')};
   const copy=async()=>{const t=q('#shText').value;
     try{await navigator.clipboard.writeText(t);return true}
     catch(e){try{q('#shText').select();return document.execCommand('copy')}catch(e2){return false}}};
@@ -1377,7 +1452,12 @@ function openShare(id){
   q('#shGo').onclick=async()=>{
     const text=q('#shText').value, copied=await copy();
     let files=[];
-    try{files=await Promise.all(s.photos.map((p,i)=>picked[i]?dataUrlToFile(p,`chouka-${s.date}-${i+1}.jpg`):null).filter(Boolean))}catch(e){}
+    try{
+      const useCard=q('#shUseCard').checked;
+      if(useCard){cardUrl=await drawCard(s,cur(),q('#shComment').value,order.length?s.photos[order[0]]:null);files.push(await dataUrlToFile(cardUrl,`chouka-card-${s.date}.jpg`))}
+      const rest=useCard?order.slice(1):order;
+      for(const [n,i] of rest.entries())files.push(await dataUrlToFile(s.photos[i],`chouka-${s.date}-${n+1}.jpg`));
+    }catch(e){console.warn(e)}
     if(!navigator.share){
       q('#shNote').innerHTML='⚠️ このブラウザは共有機能に対応していません。'+(copied?'投稿文はコピー済みなので、':'「この文章をコピー」を押してから、')+'InstagramやFacebookのアプリを開いて貼り付けてください。';return;
     }
@@ -1386,9 +1466,9 @@ function openShare(id){
     else if(files.length)q('#shNote').textContent='⚠️ このブラウザは写真つきの共有に対応していません。文章だけ共有します。';
     try{
       await navigator.share(data);
-      toast(copied?'投稿文はコピー済みです。キャプション欄に貼り付けてください':'共有しました',4000);
+      toast(copied?'文章はコピー済みです。Instagramではキャプション欄に貼り付けてください':'共有しました',5000);
     }catch(e){
-      if(e.name!=='AbortError')q('#shNote').textContent='⚠️ 共有できませんでした（'+e.message+'）。「この文章をコピー」を使ってください。';
+      if(e.name!=='AbortError')q('#shNote').textContent='⚠️ 共有できませんでした（'+e.message+'）。「カード画像を保存」してからInstagramで選んでください。';
     }
   };
   paintStyle();regen();paint();
