@@ -90,4 +90,242 @@ th{color:var(--muted);font-weight:500}
 </header>
 
 <main>
-  
+  <section id="tab-record" class="tab active">
+    <div class="card">
+      <h2>⚡ クイック記録</h2>
+      <div class="row">
+        <div><label>魚種</label><input id="qSpecies" list="speciesList" placeholder="例: シーバス"></div>
+        <div style="flex:0 0 70px"><label>サイズ(cm)</label><input id="qSize" type="number" inputmode="decimal" placeholder="60"></div>
+        <div style="flex:0 0 60px"><label>匹数</label><input id="qCount" type="number" inputmode="numeric" value="1"></div>
+      </div>
+      <datalist id="speciesList"></datalist>
+      <button class="btn small ghost" id="quickAdd" style="margin-top:8px">＋ クイックでキャッチを追加</button>
+    </div>
+
+    <div class="card">
+      <h2>📝 詳細記録</h2>
+      <label>日付</label><input id="fDate" type="date">
+      <div class="row">
+        <div><label>開始</label><input id="fStart" type="time"></div>
+        <div><label>終了</label><input id="fEnd" type="time"></div>
+      </div>
+      <label>釣法</label>
+      <select id="fMethod">
+        <option value="">選択してください</option>
+        <option>ルアー</option><option>ウキ釣り</option><option>投げ釣り</option>
+        <option>サビキ</option><option>フライ</option><option>テンカラ</option>
+        <option>船釣り</option><option>氷穴釣り</option><option>その他</option>
+      </select>
+
+      <label>ポイント</label>
+      <div class="row">
+        <input id="fPointName" placeholder="釣り場名">
+        <button class="btn small ghost" id="gpsBtn" style="flex:0 0 auto;margin-top:0">📍GPS</button>
+      </div>
+      <select id="fPointSel" style="margin-top:6px"><option value="">登録ポイントから選択</option></select>
+
+      <label>タックルプリセット</label>
+      <select id="fTackleSel"><option value="">プリセットなし</option></select>
+
+      <details>
+        <summary>タックル詳細を入力</summary>
+        <label>ロッド（長さ/パワー/アクション）</label>
+        <input id="fRod" placeholder="例: 9ft / M / ファスト">
+        <label>リール（機種/ギア比/ドラグ）</label>
+        <input id="fReel" placeholder="例: 4000XG / 6.2 / 10kg">
+        <label>ライン（種類/号数/リーダー）</label>
+        <div class="row">
+          <select id="fLineType" style="flex:0 0 100px">
+            <option value="">種類</option>
+            <option>ナイロン</option>
+            <option>フロロ</option>
+            <option>PE</option>
+            <option>エステル</option>
+            <option>その他</option>
+          </select>
+          <input id="fLineDetail" placeholder="号数/リーダー (例: 1.0号 / 25lb)">
+        </div>
+        <label>仕掛け（針/オモリ/ウキ/エサ）</label>
+        <input id="fRig" placeholder="例: 3号 / 5号 / なし / 青イソメ">
+      </details>
+
+      <label>天気・環境（自動取得＋修正可）</label>
+      <div class="row">
+        <select id="fWeather">
+          <option value="">--</option>
+          <option>☀️ 晴れ</option><option>☁️ 曇り</option><option>🌧️ 雨</option>
+          <option>🌨️ 雪</option><option>🌫️ 霧</option>
+        </select>
+        <input id="fTemp" type="number" placeholder="気温℃">
+      </div>
+      <div class="row">
+        <input id="fWindDir" placeholder="風向">
+        <input id="fWindMs" type="number" placeholder="風速m/s">
+      </div>
+      <div class="row">
+        <input id="fPressure" type="number" placeholder="気圧hPa">
+        <input id="fWater" type="number" placeholder="水温℃">
+      </div>
+      <label>潮周り</label>
+      <select id="fTide">
+        <option value="">--</option>
+        <option>大潮</option><option>中潮</option><option>小潮</option>
+        <option>長潮</option><option>若潮</option>
+      </select>
+      <button class="btn small ghost" id="autoEnv">🌐 気象・潮汐を自動取得</button>
+
+      <label>メモ</label>
+      <textarea id="fMemo" placeholder="ヒットパターン・地形・気づきなど"></textarea>
+
+      <label>写真（複数可）</label>
+      <input id="fPhotos" type="file" accept="image/*" multiple>
+      <div id="photoPreview" class="photo-preview"></div>
+
+      <details>
+        <summary>この釣行のキャッチ一覧（複数追加可）</summary>
+        <div id="catchList" style="margin-bottom:10px"></div>
+        <div class="row">
+          <input id="cSpecies" list="speciesList" placeholder="魚種">
+          <input id="cSize" type="number" placeholder="cm" style="flex:0 0 70px">
+          <input id="cCount" type="number" value="1" placeholder="匹" style="flex:0 0 60px">
+        </div>
+        <div class="row" style="margin-top:6px">
+          <input id="cHitTime" type="time" placeholder="ヒット時刻">
+          <input id="cDepth" type="number" placeholder="水深m" style="flex:0 0 80px">
+        </div>
+        <input id="cLure" placeholder="ルアー/エサ（メーカー・色・重さ）" style="margin-top:6px">
+        <button class="btn small" id="addCatch">＋ キャッチを追加</button>
+      </details>
+    </div>
+
+    <div style="padding-bottom:20px">
+      <button class="btn" id="saveSession">💾 釣行を保存する</button>
+    </div>
+  </section>
+
+  <section id="tab-list" class="tab">
+    <div class="card">
+      <h2>🔎 フィルタ</h2>
+      <div class="row">
+        <select id="filterSpecies"><option value="">全魚種</option></select>
+        <select id="filterMethod"><option value="">全釣法</option></select>
+      </div>
+      <div class="row">
+        <select id="filterPoint"><option value="">全ポイント</option></select>
+        <select id="filterTide"><option value="">全潮周り</option></select>
+      </div>
+      <div class="row">
+        <input id="filterFrom" type="date">
+        <input id="filterTo" type="date">
+      </div>
+    </div>
+    <div id="sessionList"></div>
+  </section>
+
+  <section id="tab-stats" class="tab">
+    <div class="card">
+      <h2>📊 サマリ</h2>
+      <div class="stat-grid">
+        <div class="stat"><b id="stSessions">0</b><small>総釣行数</small></div>
+        <div class="stat"><b id="stCatches">0</b><small>総釣果数</small></div>
+        <div class="stat"><b id="stBest">0</b><small>自己ベスト(cm)</small></div>
+        <div class="stat"><b id="stSpecies">0</b><small>魚種数</small></div>
+      </div>
+    </div>
+    <div class="card">
+      <h2>🏆 魚種別ランキング</h2>
+      <div id="speciesRank" class="empty">記録がありません</div>
+    </div>
+    <div class="card">
+      <h2>⏰ 時間帯別ヒット率</h2>
+      <canvas id="hourChart" height="160"></canvas>
+    </div>
+    <div class="card">
+      <h2>🌊 潮回り×魚種</h2>
+      <div id="tideCross" class="mini"></div>
+    </div>
+    <div class="card">
+      <h2>🌡️ 気圧・水温と釣果の相関</h2>
+      <canvas id="corrChart" height="160"></canvas>
+      <div id="corrText" class="mini"></div>
+    </div>
+    <div class="card">
+      <h2>🎣 ルアー別釣果率</h2>
+      <div id="lureRank" class="empty">記録がありません</div>
+    </div>
+    <div class="card">
+      <h2>📍 ポイント別期待値</h2>
+      <div id="pointExpect" class="empty">記録がありません</div>
+    </div>
+    <div class="card">
+      <h2>📅 月別釣果推移</h2>
+      <canvas id="monthChart" height="160"></canvas>
+    </div>
+    <div class="card">
+      <button class="btn small ghost" id="exportCSV">📤 CSVエクスポート</button>
+      <button class="btn small ghost" id="exportJSON">📤 JSONエクスポート</button>
+    </div>
+  </section>
+
+  <section id="tab-points" class="tab">
+    <div class="card">
+      <h2>📍 ポイント管理</h2>
+      <div id="map"></div>
+      <div class="row">
+        <input id="pName" placeholder="ポイント名">
+        <button class="btn small" id="pAdd" style="flex:0 0 auto;margin-top:0">＋追加</button>
+      </div>
+      <div class="mini">現在地を使う場合は「📍GPS」→ 追加</div>
+      <div id="pointList" style="margin-top:10px"></div>
+    </div>
+  </section>
+
+  <section id="tab-settings" class="tab">
+    <div class="card">
+      <h2>🎣 タックルプリセット管理</h2>
+      <div id="presetList"></div>
+      <details style="margin-top:10px">
+        <summary>＋ 新しいプリセットを追加</summary>
+        <input id="presetName" placeholder="プリセット名 (例: シーバス用)" style="margin-top:6px">
+        <input id="presetRod" placeholder="ロッド (例: 9ft M)" style="margin-top:6px">
+        <input id="presetReel" placeholder="リール (例: 4000XG)" style="margin-top:6px">
+        <div class="row" style="margin-top:6px">
+          <select id="presetLineType" style="flex:0 0 100px">
+            <option value="">種類</option>
+            <option>ナイロン</option><option>フロロ</option><option>PE</option>
+            <option>エステル</option><option>その他</option>
+          </select>
+          <input id="presetLineDetail" placeholder="号数/リーダー">
+        </div>
+        <input id="presetRig" placeholder="仕掛け (例: リーダー25lb)" style="margin-top:6px">
+        <button class="btn small" id="presetAdd" style="margin-top:8px">＋ 追加する</button>
+      </details>
+    </div>
+    <div class="card">
+      <h2>🐟 魚種辞書</h2>
+      <div class="row">
+        <input id="fishAdd" placeholder="魚種名を追加">
+        <button class="btn small" id="fishAddBtn" style="flex:0 0 auto;margin-top:0">＋</button>
+      </div>
+      <div id="fishList" class="mini" style="margin-top:8px"></div>
+    </div>
+    <div class="card">
+      <h2>🗂️ データ管理</h2>
+      <button class="btn small ghost" id="migrateBtn">旧データを取り込む</button>
+      <button class="btn small ghost" id="exportAll">全データエクスポート</button>
+      <button class="btn small danger" id="clearAll">全データ削除</button>
+    </div>
+  </section>
+</main>
+
+<nav>
+  <button data-tab="record" class="active"><span>📝</span>記録</button>
+  <button data-tab="list"><span>📋</span>一覧</button>
+  <button data-tab="stats"><span>📊</span>分析</button>
+  <button data-tab="points"><span>📍</span>ポイント</button>
+  <button data-tab="settings"><span>⚙️</span>設定</button>
+</nav>
+
+<div class="toast" id="toast"></div>
+
+<script>  
