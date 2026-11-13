@@ -42,6 +42,7 @@ input,select,textarea{width:100%;background:var(--bg);border:1px solid var(--lin
   border-radius:8px;padding:10px;font-size:16px;min-height:44px;font-family:inherit}
 input[type=checkbox]{width:22px;height:22px;min-height:0;vertical-align:middle;margin-right:6px}
 textarea{min-height:70px;resize:vertical}
+#fWeather,#fWindDir{padding-left:6px;padding-right:0;font-size:15px}
 .row{display:flex;gap:8px}.row>*{flex:1;min-width:0}
 .btn{display:block;width:100%;background:var(--accent2);color:#fff;border:0;border-radius:10px;
   padding:14px;font-size:16px;font-weight:600;margin-top:12px;cursor:pointer;min-height:48px}
@@ -859,42 +860,53 @@ const JMA_OFFICE={31:'020000',32:'050000',33:'030000',34:'040000',35:'060000',36
   57:'180000',60:'250000',61:'260000',62:'270000',63:'280000',64:'290000',65:'300000',66:'330000',67:'340000',68:'320000',69:'310000',
   71:'360000',72:'370000',73:'380000',74:'390000',81:'350000',82:'400000',83:'440000',84:'420000',85:'410000',86:'430000',87:'450000',88:'460100'};
 async function amedasStations(){            // 観測所一覧（初回だけ取得して端末に保存）
-  const c=await idbGet('meta','amedas').catch(()=>null);
+  const c=await idbGet('meta','amedas2').catch(()=>null);
   if(c?.list?.length&&Date.now()-c.at<90*86400000)return c.list;
   try{
     const t=await fetchJSON(JMA+'amedas/const/amedastable.json');
-    const list=Object.entries(t).map(([id,v])=>[id,+(v.lat[0]+v.lat[1]/60).toFixed(4),+(v.lon[0]+v.lon[1]/60).toFixed(4),v.kjName]);
-    if(list.length>100){idbPut('meta',{key:'amedas',list,at:Date.now()}).catch(()=>{});return list}
+    const list=Object.entries(t).map(([id,v])=>[id,+(v.lat[0]+v.lat[1]/60).toFixed(4),+(v.lon[0]+v.lon[1]/60).toFixed(4),v.kjName,String(v.elems||'')]);
+    if(list.length>100){idbPut('meta',{key:'amedas2',list,at:Date.now()}).catch(()=>{});return list}
   }catch(e){ if(c?.list?.length)return c.list; throw e }
   throw new Error('観測所一覧が空です');
 }
 async function fetchAmedas(ll,date,hour,isToday){
-  const near=(await amedasStations()).map(x=>({id:x[0],name:x[3],km:distM(ll,{lat:x[1],lng:x[2]})/1000})).sort((a,b)=>a.km-b.km).slice(0,6);
-  const out={src:{}};
-  const take=(o,stn)=>{ if(!o)return;
-    for(const k of ['temp','wind','windDirection','normalPressure','precipitation1h','sun1h']){
-      if(out[k]==null&&Array.isArray(o[k])&&o[k][0]!=null){out[k]=o[k][0];out.src[k]=stn}
-    }};
-  const full=()=>out.temp!=null&&out.wind!=null&&out.windDirection!=null&&out.normalPressure!=null;
+  // 近い順に並べる。雨量だけの観測所も多いので、値のある観測所が見つかるまで探す
+  const all=(await amedasStations()).map(x=>({id:x[0],name:x[3],el:x[4]||'',km:distM(ll,{lat:x[1],lng:x[2]})/1000})).sort((a,b)=>a.km-b.km);
+  const BASIC=['temp','wind','windDirection','precipitation1h','sun1h'], out={src:{}};
+  const has=(o,k)=>o&&Array.isArray(o[k])&&o[k][0]!=null;
+  const take=(o,stn,keys)=>{keys.forEach(k=>{if(out[k]==null&&has(o,k)){out[k]=o[k][0];out.src[k]=stn}})};
   if(isToday){
     const txt=await (async()=>{const ctl=new AbortController(),tm=setTimeout(()=>ctl.abort(),12000);
       try{const r=await fetch(JMA+'amedas/data/latest_time.txt',{signal:ctl.signal});if(!r.ok)throw new Error('HTTP '+r.status);return (await r.text()).trim()}
       catch(e){throw new Error(e.name==='AbortError'?'時間切れ':e.message==='Failed to fetch'?'通信できません':e.message)}finally{clearTimeout(tm)}})();
     const m=txt.match(/^(\d{4})-(\d\d)-(\d\d)T(\d\d):(\d\d)/);if(!m)throw new Error('最新時刻が読めません');
     const map=await fetchJSON(`${JMA}amedas/data/map/${m[1]}${m[2]}${m[3]}${m[4]}${m[5]}00.json`);
-    near.forEach(n=>take(map[n.id],n));out.time=m[4]+':'+m[5];
+    for(const n of all){
+      if(n.km>150)break;
+      if(n.km<=80)take(map[n.id],n,BASIC);
+      take(map[n.id],n,['normalPressure']);      // 気圧は気象台などに限られるので150kmまで探す
+      if(out.temp!=null&&out.wind!=null&&out.windDirection!=null&&out.normalPressure!=null)break;
+    }
+    out.time=m[4]+':'+m[5];
   }else{
     const ymd8=date.replace(/-/g,''),blk=pad(Math.floor(hour/3)*3),key=ymd8+pad(hour)+'0000';
-    let got=false,err;
-    for(const n of near.slice(0,4)){
-      try{const j=await fetchJSON(`${JMA}amedas/data/point/${n.id}/${ymd8}_${blk}.json`);take(j[key],n);got=true}catch(e){err=e}
-      if(full())break;
+    const point=async n=>(await fetchJSON(`${JMA}amedas/data/point/${n.id}/${ymd8}_${blk}.json`))[key];
+    let got=false;
+    for(const n of all.filter(n=>n.km<=80&&n.el[0]!=='0'&&n.el[0]!==undefined).slice(0,4)){   // 気温のある観測所
+      try{take(await point(n),n,[...BASIC,'normalPressure']);got=true}catch(e){}
+      if(out.temp!=null&&out.wind!=null&&out.windDirection!=null)break;
     }
-    if(!got)throw new Error('この日のアメダスは公開期間外です（約10日前まで）'+(err?'':''));
+    if(!got)throw new Error('この日のアメダスは公開期間外です（約10日前まで）');
+    if(out.normalPressure==null){
+      for(const n of all.filter(n=>n.km<=150&&n.el[7]==='1').slice(0,2)){
+        try{take(await point(n),n,['normalPressure'])}catch(e){}
+        if(out.normalPressure!=null)break;
+      }
+    }
     out.time=pad(hour)+':00';
   }
-  if(out.temp==null&&out.wind==null)throw new Error('近くの観測所に値がありません');
-  out.near=near;return out;
+  if(out.temp==null&&out.wind==null)throw new Error('80km以内の観測所に値がありません');
+  return out;
 }
 async function fetchJmaForecastWord(stnId){ // 夜など日照で判定できない時の、今日の予報の先頭の天気
   const office=JMA_OFFICE[+String(stnId).slice(0,2)];if(!office)return'';
