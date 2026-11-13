@@ -182,8 +182,10 @@ tr.tap{cursor:pointer}
       <div class="row">
         <div><label>風向</label><select id="fWindDir">
           <option value="">--</option><option>無風</option>
-          <option>北</option><option>北東</option><option>東</option><option>南東</option>
-          <option>南</option><option>南西</option><option>西</option><option>北西</option>
+          <option>北</option><option>北北東</option><option>北東</option><option>東北東</option>
+          <option>東</option><option>東南東</option><option>南東</option><option>南南東</option>
+          <option>南</option><option>南南西</option><option>南西</option><option>西南西</option>
+          <option>西</option><option>西北西</option><option>北西</option><option>北北西</option>
         </select></div>
         <div><label>風速m/s</label><input id="fWindMs" type="number" step="0.1" inputmode="decimal"></div>
         <div><label>気圧hPa</label><input id="fPressure" type="number" inputmode="decimal"></div>
@@ -356,7 +358,7 @@ tr.tap{cursor:pointer}
       <div id="fishList" style="margin-top:8px"></div>
     </div>
     <div class="card">
-      <div class="mini">気象・水温: Open-Meteo ／ 潮位: 気象庁「潮位表掲載地点一覧表」の調和定数からアプリ内で計算（満干時刻は潮位表と10〜30分ずれることがあります。航行や安全判断には使わないでください）／ 地図: 国土地理院タイル・OpenStreetMap<br>データはこの端末のブラウザ内にのみ保存されます。機種変更や閲覧データ削除に備えて、定期的にバックアップしてください。</div>
+      <div class="mini">気象: 気象庁アメダス（実測）・気象庁天気予報・Open-Meteo ／ 水温: Open-Meteo ／ 潮位: 気象庁「潮位表掲載地点一覧表」の調和定数からアプリ内で計算（満干時刻は潮位表と10〜30分ずれることがあります。航行や安全判断には使わないでください）／ 地図: 国土地理院タイル・OpenStreetMap<br>データはこの端末のブラウザ内にのみ保存されます。機種変更や閲覧データ削除に備えて、定期的にバックアップしてください。</div>
     </div>
   </section>
 </main>
@@ -841,7 +843,7 @@ function compressImage(file,max=1280,q=0.8){return new Promise((res,rej)=>{
 
 /* ---- 気象・潮の自動取得（記録の日付・開始時刻に合わせる） ---- */
 async function fetchJSON(url){
-  const ctl=new AbortController(),tm=setTimeout(()=>ctl.abort(),15000);
+  const ctl=new AbortController(),tm=setTimeout(()=>ctl.abort(),12000);
   try{
     const r=await fetch(url,{signal:ctl.signal});
     let j=null;try{j=await r.json()}catch(e){}
@@ -850,17 +852,77 @@ async function fetchJSON(url){
   }catch(e){throw new Error(e.name==='AbortError'?'時間切れ':(e.message==='Failed to fetch'?'通信できません（圏外・機内モード・広告ブロック等）':e.message))}
   finally{clearTimeout(tm)}
 }
+/* --- 気象庁アメダス（実測値）。Open-Meteoが応答しない時の主力 --- */
+const JMA='https://www.jma.go.jp/bosai/';
+const JMA_OFFICE={31:'020000',32:'050000',33:'030000',34:'040000',35:'060000',36:'070000',40:'080000',41:'090000',42:'100000',43:'110000',
+  44:'130000',45:'120000',46:'140000',48:'200000',49:'190000',50:'220000',51:'230000',52:'210000',53:'240000',54:'150000',55:'160000',56:'170000',
+  57:'180000',60:'250000',61:'260000',62:'270000',63:'280000',64:'290000',65:'300000',66:'330000',67:'340000',68:'320000',69:'310000',
+  71:'360000',72:'370000',73:'380000',74:'390000',81:'350000',82:'400000',83:'440000',84:'420000',85:'410000',86:'430000',87:'450000',88:'460100'};
+async function amedasStations(){            // 観測所一覧（初回だけ取得して端末に保存）
+  const c=await idbGet('meta','amedas').catch(()=>null);
+  if(c?.list?.length&&Date.now()-c.at<90*86400000)return c.list;
+  try{
+    const t=await fetchJSON(JMA+'amedas/const/amedastable.json');
+    const list=Object.entries(t).map(([id,v])=>[id,+(v.lat[0]+v.lat[1]/60).toFixed(4),+(v.lon[0]+v.lon[1]/60).toFixed(4),v.kjName]);
+    if(list.length>100){idbPut('meta',{key:'amedas',list,at:Date.now()}).catch(()=>{});return list}
+  }catch(e){ if(c?.list?.length)return c.list; throw e }
+  throw new Error('観測所一覧が空です');
+}
+async function fetchAmedas(ll,date,hour,isToday){
+  const near=(await amedasStations()).map(x=>({id:x[0],name:x[3],km:distM(ll,{lat:x[1],lng:x[2]})/1000})).sort((a,b)=>a.km-b.km).slice(0,6);
+  const out={src:{}};
+  const take=(o,stn)=>{ if(!o)return;
+    for(const k of ['temp','wind','windDirection','normalPressure','precipitation1h','sun1h']){
+      if(out[k]==null&&Array.isArray(o[k])&&o[k][0]!=null){out[k]=o[k][0];out.src[k]=stn}
+    }};
+  const full=()=>out.temp!=null&&out.wind!=null&&out.windDirection!=null&&out.normalPressure!=null;
+  if(isToday){
+    const txt=await (async()=>{const ctl=new AbortController(),tm=setTimeout(()=>ctl.abort(),12000);
+      try{const r=await fetch(JMA+'amedas/data/latest_time.txt',{signal:ctl.signal});if(!r.ok)throw new Error('HTTP '+r.status);return (await r.text()).trim()}
+      catch(e){throw new Error(e.name==='AbortError'?'時間切れ':e.message==='Failed to fetch'?'通信できません':e.message)}finally{clearTimeout(tm)}})();
+    const m=txt.match(/^(\d{4})-(\d\d)-(\d\d)T(\d\d):(\d\d)/);if(!m)throw new Error('最新時刻が読めません');
+    const map=await fetchJSON(`${JMA}amedas/data/map/${m[1]}${m[2]}${m[3]}${m[4]}${m[5]}00.json`);
+    near.forEach(n=>take(map[n.id],n));out.time=m[4]+':'+m[5];
+  }else{
+    const ymd8=date.replace(/-/g,''),blk=pad(Math.floor(hour/3)*3),key=ymd8+pad(hour)+'0000';
+    let got=false,err;
+    for(const n of near.slice(0,4)){
+      try{const j=await fetchJSON(`${JMA}amedas/data/point/${n.id}/${ymd8}_${blk}.json`);take(j[key],n);got=true}catch(e){err=e}
+      if(full())break;
+    }
+    if(!got)throw new Error('この日のアメダスは公開期間外です（約10日前まで）'+(err?'':''));
+    out.time=pad(hour)+':00';
+  }
+  if(out.temp==null&&out.wind==null)throw new Error('近くの観測所に値がありません');
+  out.near=near;return out;
+}
+async function fetchJmaForecastWord(stnId){ // 夜など日照で判定できない時の、今日の予報の先頭の天気
+  const office=JMA_OFFICE[+String(stnId).slice(0,2)];if(!office)return'';
+  const j=await fetchJSON(`${JMA}forecast/data/forecast/${office}.json`);
+  const w=(j?.[0]?.timeSeries?.[0]?.areas?.[0]?.weathers?.[0]||'').replace(/\s|　/g,'');
+  if(/^(晴|快晴)/.test(w))return'☀️ 晴れ';if(/^(くもり|曇)/.test(w))return'☁️ 曇り';
+  if(/^雨.*雷|^雷/.test(w))return'⛈️ 雷雨';if(/^(雨|大雨|暴風雨)/.test(w))return'🌧️ 雨';if(/^(雪|大雪|暴風雪)/.test(w))return'🌨️ 雪';if(/^霧/.test(w))return'🌫️ 霧';
+  return'';
+}
+async function fetchOpenMeteo(lat,lng,date,hour,isToday){
+  const vars='temperature_2m,pressure_msl,wind_speed_10m,wind_direction_10m,weather_code';
+  if(isToday)return (await fetchJSON(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current=${vars}&wind_speed_unit=ms&timezone=Asia%2FTokyo`)).current;
+  const ageDays=(new Date(todayStr()+'T12:00:00')-new Date(date+'T12:00:00'))/86400000;
+  const host=ageDays>80?'https://archive-api.open-meteo.com/v1/archive':'https://api.open-meteo.com/v1/forecast';
+  const j=await fetchJSON(`${host}?latitude=${lat}&longitude=${lng}&hourly=${vars}&wind_speed_unit=ms&timezone=Asia%2FTokyo&start_date=${date}&end_date=${date}`);
+  const i=Math.min(hour,j.hourly.time.length-1),w={};vars.split(',').forEach(k=>w[k]=j.hourly[k][i]);return w;
+}
 async function autoEnv(){
   const btn=$('#autoEnv'),st=$('#envStatus');
   // 位置の決め方: 記録の位置 → 現在地 → 前回の位置 → 基準港
-  let ll=currentLatLng,src='記録の位置',gpsMsg='';
+  let ll=currentLatLng,gpsMsg='';
   btn.disabled=true;btn.textContent='取得中…';st.textContent='';
   if(!ll){
-    try{ll=await getGPS();setLatLng(ll);src='現在地'}
+    try{ll=await getGPS();setLatLng(ll)}
     catch(e){
       gpsMsg=gpsErrText(e);
-      if(lastLoc()){ll=lastLoc();src='前回の位置'}
-      else if(currentTide){const p=portByCode(currentTide.port.code);ll={lat:p[2],lng:p[3]};src='基準港 '+p[1]}
+      if(lastLoc())ll=lastLoc();
+      else if(currentTide){const p=portByCode(currentTide.port.code);ll={lat:p[2],lng:p[3]}}
     }
   }
   const done=()=>{btn.disabled=false;btn.textContent='🌐 この日時・場所の気象を自動取得'};
@@ -868,39 +930,51 @@ async function autoEnv(){
   const lat=ll.lat.toFixed(4),lng=ll.lng.toFixed(4),date=$('#fDate').value||todayStr();
   const isToday=date===todayStr();
   const hour=isToday?new Date().getHours():parseInt(($('#fStart').value||'12:00').slice(0,2));
-  const vars='temperature_2m,pressure_msl,wind_speed_10m,wind_direction_10m,weather_code';
-  const msgs=[];
-  try{
-    let w;
-    if(isToday){
-      const j=await fetchJSON(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current=${vars}&wind_speed_unit=ms&timezone=Asia%2FTokyo`);
-      w=j.current;
-    }else{
-      const ageDays=(new Date(todayStr()+'T12:00:00')-new Date(date+'T12:00:00'))/86400000;
-      const host=ageDays>80?'https://archive-api.open-meteo.com/v1/archive':'https://api.open-meteo.com/v1/forecast';
-      const j=await fetchJSON(`${host}?latitude=${lat}&longitude=${lng}&hourly=${vars}&wind_speed_unit=ms&timezone=Asia%2FTokyo&start_date=${date}&end_date=${date}`);
-      const i=Math.min(hour,j.hourly.time.length-1);w={};vars.split(',').forEach(k=>w[k]=j.hourly[k][i]);
-    }
-    const set=(id,v,d)=>{if(v!=null)$(id).value=v.toFixed(d)};
-    set('#fTemp',w.temperature_2m,1);set('#fPressure',w.pressure_msl,0);set('#fWindMs',w.wind_speed_10m,1);
-    if(w.wind_speed_10m!=null)$('#fWindDir').value=w.wind_speed_10m<0.3?'無風':windDirName(w.wind_direction_10m);
-    const wt=weatherCodeToText(w.weather_code);if(wt)$('#fWeather').value=wt;
-    msgs.push('✅ 気象を取得（'+src+'・'+(isToday?'現在':date+' '+hour+'時')+'）');
-  }catch(e){msgs.push('⚠️ 気象を取得できません: '+e.message+' → 手入力してください')}
-  if($('#fWater').value===''){
-    try{
-      const j=await fetchJSON(`https://marine-api.open-meteo.com/v1/marine?latitude=${lat}&longitude=${lng}&hourly=sea_surface_temperature&timezone=Asia%2FTokyo&start_date=${date}&end_date=${date}`);
-      const sst=j.hourly.sea_surface_temperature?.[Math.min(hour,23)];
-      if(sst!=null){$('#fWater').value=sst.toFixed(1);msgs.push('✅ 水温は海面水温の推定値（実測したら上書きを）')}
-      else msgs.push('水温: この場所の推定値なし（手入力）');
-    }catch(e){msgs.push('水温: 推定値なし（手入力）')}
+  // 気象庁アメダス(実測)と Open-Meteo(モデル) を同時に問い合わせ、取れた方を使う
+  const [ja,om,sea]=await Promise.allSettled([
+    fetchAmedas(ll,date,hour,isToday),
+    fetchOpenMeteo(lat,lng,date,hour,isToday),
+    $('#fWater').value===''?fetchJSON(`https://marine-api.open-meteo.com/v1/marine?latitude=${lat}&longitude=${lng}&hourly=sea_surface_temperature&timezone=Asia%2FTokyo&start_date=${date}&end_date=${date}`):Promise.resolve(null)
+  ]);
+  const A=ja.status==='fulfilled'?ja.value:null, O=om.status==='fulfilled'?om.value:null, msgs=[];
+  const set=(id,v,d)=>{if(v!=null)$(id).value=(+v).toFixed(d)};
+  const stn=k=>A.src[k]?`${A.src[k].name}(約${Math.round(A.src[k].km)}km)`:'';
+  if(A){
+    set('#fTemp',A.temp,1);set('#fWindMs',A.wind,1);set('#fPressure',A.normalPressure,0);
+    if(A.windDirection!=null)$('#fWindDir').value=A.windDirection===0?'無風':DIR16[A.windDirection%16];
+    msgs.push(`✅ アメダス実測 ${A.time}：`+[A.wind!=null?'風 '+stn('wind'):'',A.temp!=null&&A.src.temp!==A.src.wind?'気温 '+stn('temp'):'',A.normalPressure!=null?'気圧 '+stn('normalPressure'):''].filter(Boolean).join('／'));
+  }
+  if(O){
+    if(!A||A.temp==null)set('#fTemp',O.temperature_2m,1);
+    if(!A||A.wind==null){set('#fWindMs',O.wind_speed_10m,1);if(O.wind_speed_10m!=null)$('#fWindDir').value=O.wind_speed_10m<0.3?'無風':windDirName(O.wind_direction_10m)}
+    if(!A||A.normalPressure==null)set('#fPressure',O.pressure_msl,0);
+    if(!A)msgs.push('✅ 気象モデル(Open-Meteo)の値を取得');
+  }
+  // 天気: 雨雪は実測の降水 → 日中は実測の日照 → モデル → 今日の予報
+  let wx='',wxSrc='';
+  const sun=sunTimes(date,ll.lat,ll.lng),hm=hour*60+(isToday?new Date().getMinutes():0);
+  const day=sun&&hm>hm2min(sun.rise)+70&&hm<hm2min(sun.set)-10;
+  if(A&&A.precipitation1h>0){wx=(A.temp!=null&&A.temp<1)?'🌨️ 雪':'🌧️ 雨';wxSrc='実測の降水'}
+  else if(A&&day&&A.sun1h!=null){wx=A.sun1h>=0.4?'☀️ 晴れ':'☁️ 曇り';wxSrc='実測の日照'}
+  else if(O&&weatherCodeToText(O.weather_code)){wx=weatherCodeToText(O.weather_code);wxSrc='気象モデル'}
+  else if(A&&isToday){try{wx=await fetchJmaForecastWord((A.src.wind||A.src.temp).id);wxSrc='気象庁の今日の予報'}catch(e){}}
+  if(wx){$('#fWeather').value=wx;msgs.push(`✅ 天気: ${wx.slice(-2)}（${wxSrc}から。違えば直してください）`)}
+  else if(A||O)msgs.push('天気: 夜間などで判定できません → 選んでください');
+  if(!A&&!O){
+    msgs.push('⚠️ 気象を取得できません → 手入力してください');
+    msgs.push('　アメダス: '+ja.reason.message);msgs.push('　Open-Meteo: '+om.reason.message);
+  }
+  if(sea.status==='fulfilled'&&sea.value){
+    const sst=sea.value.hourly?.sea_surface_temperature?.[Math.min(hour,23)];
+    if(sst!=null){$('#fWater').value=sst.toFixed(1);msgs.push('✅ 水温は海面水温の推定値（実測したら上書きを）')}
   }
   if(gpsMsg)msgs.push('（'+gpsMsg+'）');
   st.innerHTML=msgs.map(esc).join('<br>');
   refreshMoon();renderCatchList();saveDraftSoon();done();
-  toast(msgs[0].startsWith('✅')?'気象を取得しました':'気象を取得できませんでした（理由はボタンの下）',3000);
+  toast(A||O?'気象を取得しました':'気象を取得できませんでした（理由はボタンの下）',3000);
 }
-function windDirName(deg){if(deg==null)return'';return['北','北東','東','南東','南','南西','西','北西'][Math.round(deg/45)%8]}
+const DIR16=['北','北北東','北東','東北東','東','東南東','南東','南南東','南','南南西','南西','西南西','西','西北西','北西','北北西'];
+function windDirName(deg){if(deg==null)return'';return DIR16[Math.round(deg/22.5)%16]}
 function weatherCodeToText(code){
   if(code==null)return'';
   if(code<=1)return'☀️ 晴れ';
