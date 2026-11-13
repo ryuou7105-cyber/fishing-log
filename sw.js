@@ -2,7 +2,7 @@
    - アプリ本体: ネットワーク優先（更新がすぐ反映）→ 圏外ならキャッシュ
    - ライブラリ(CDN): キャッシュ優先
    - 気象API・地図タイル: キャッシュしない */
-const CACHE = 'fishlog-v7';
+const CACHE = 'fishlog-v8';
 const CORE = [
   './', './index.html', './manifest.json', './tide-ports.js', './icon-192.png', './icon-512.png',
   'https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.js',
