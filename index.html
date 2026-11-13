@@ -142,6 +142,7 @@ tr.tap{cursor:pointer}
       <datalist id="lureList"></datalist>
       <datalist id="methodList"></datalist>
       <datalist id="pointNameList"></datalist>
+      <datalist id="boatList"></datalist>
     </div>
 
     <div class="card">
@@ -161,6 +162,8 @@ tr.tap{cursor:pointer}
         <select id="fPointSel"><option value="">登録ポイントから選択</option></select>
       </div>
       <div class="mini" id="locInfo">位置: 未設定</div>
+      <label>遊漁船・渡船名（任意）</label>
+      <input id="fBoat" list="boatList" placeholder="例: ○○渡船 / ○○丸" autocomplete="off">
     </div>
 
     <div class="card">
@@ -385,7 +388,7 @@ const METHODS=['ルアー','エギング','ショアジギング','オフショ�
   'フカセ','ウキ釣り','サビキ','投げ釣り','ちょい投げ','ぶっこみ','穴釣り','落とし込み','泳がせ','船釣り',
   '渓流エサ','フライ','テンカラ','ワカサギ','その他'];
 const TIDES=['大潮','中潮','小潮','長潮','若潮'];
-const FORM_IDS=['fDate','fStart','fEnd','fMethod','fPointName','fPointSel','fPort','fTackleSel','fRod','fReel','fLineType',
+const FORM_IDS=['fDate','fStart','fEnd','fMethod','fPointName','fPointSel','fBoat','fPort','fTackleSel','fRod','fReel','fLineType',
   'fLineDetail','fRig','fWeather','fTemp','fWater','fWindDir','fWindMs','fPressure','fTide','fClarity','fMemo','cLure'];
 
 let db;
@@ -1075,7 +1078,7 @@ async function saveSession(){
   const old=editingId?sessions.find(s=>s.id===editingId):null;
   const session={
     id:old?.id||uid(),schemaVersion:SCHEMA,date,startTime,endTime,
-    method:$('#fMethod').value.trim(),pointId,pointName:spName,
+    method:$('#fMethod').value.trim(),pointId,pointName:spName,boat:$('#fBoat').value.trim(),
     lat:currentLatLng?.lat??null,lng:currentLatLng?.lng??null,
     tackle:{rod:$('#fRod').value,reel:$('#fReel').value,lineType:$('#fLineType').value,lineDetail:$('#fLineDetail').value,rig:$('#fRig').value},
     weather:{condition:$('#fWeather').value,tempC:num($('#fTemp').value),pressureHpa:num($('#fPressure').value),
@@ -1095,7 +1098,8 @@ async function saveSession(){
   const wasEdit=!!editingId;
   await clearDraft();await loadAll();resetForm();renderAll();
   toast(wasEdit?'変更を保存しました':'釣行を保存しました');
-  if(wasEdit)showTab('list');else window.scrollTo(0,0);
+  if(wasEdit)showTab('list');
+  else{window.scrollTo(0,0);if(session.catches.length||session.photos.length)offerShare(session.id)}
 }
 async function editSession(id){
   const s=sessions.find(x=>x.id===id);if(!s)return;
@@ -1105,7 +1109,7 @@ async function editSession(id){
   resetForm();
   applyFormState({
     form:{fDate:s.date,fStart:s.startTime,fEnd:s.endTime,fMethod:s.method||'',fPointName:s.pointName||'',
-      fPointSel:points.some(p=>p.id===s.pointId)?s.pointId:'',fPort:s.tide.port?.code||'',fTackleSel:'',fRod:s.tackle.rod||'',fReel:s.tackle.reel||'',
+      fPointSel:points.some(p=>p.id===s.pointId)?s.pointId:'',fBoat:s.boat||'',fPort:s.tide.port?.code||'',fTackleSel:'',fRod:s.tackle.rod||'',fReel:s.tackle.reel||'',
       fLineType:s.tackle.lineType||'',fLineDetail:s.tackle.lineDetail||'',fRig:s.tackle.rig||'',
       fWeather:s.weather.condition||'',fTemp:s.weather.tempC??'',fWater:s.weather.waterTempC??'',
       fWindDir:s.weather.windDir||'',fWindMs:s.weather.windMs??'',fPressure:s.weather.pressureHpa??'',
@@ -1142,7 +1146,7 @@ function renderSessions(){
   if(ft)list=list.filter(s=>s.tide.type===ft);
   if(ff)list=list.filter(s=>s.date>=ff);
   if(fto)list=list.filter(s=>s.date<=fto);
-  if(q)list=list.filter(s=>[s.pointName,s.method,s.memo,s.tackle.rod,s.tackle.reel,s.tackle.rig,s.tackle.lineDetail,
+  if(q)list=list.filter(s=>[s.pointName,s.boat,s.method,s.memo,s.tackle.rod,s.tackle.reel,s.tackle.rig,s.tackle.lineDetail,
     ...s.catches.flatMap(c=>[c.species,c.lure])].join(' ').toLowerCase().includes(q));
   $('#listCount').textContent=`${list.length}釣行 ／ ${list.reduce((a,s)=>a+sessionTotal(s),0)}匹`;
   const el=$('#sessionList');
@@ -1154,7 +1158,7 @@ function renderSessions(){
     const day=wd[new Date(s.date+'T12:00:00').getDay()];
     const meta=[s.method,s.tide.type,s.weather.condition,s.weather.waterTempC!=null?'水温'+s.weather.waterTempC+'℃':''].filter(Boolean).map(esc).join(' / ');
     return `<div class="list-item">
-      <div class="title">${esc(s.date)}(${day}) ${s.startTime?esc(s.startTime):''}${s.endTime?'〜'+esc(s.endTime):''} ${s.pointName?'📍'+esc(s.pointName):''}</div>
+      <div class="title">${esc(s.date)}(${day}) ${s.startTime?esc(s.startTime):''}${s.endTime?'〜'+esc(s.endTime):''} ${s.pointName?'📍'+esc(s.pointName):''}${s.boat?' ⛴'+esc(s.boat):''}</div>
       <div class="meta">${meta}</div>
       <div class="meta">🐟 ${total?`<b style="color:var(--text)">${total}匹</b> ${sp}`:'ボウズ'}</div>
       ${s.photos.length?`<div class="thumbs">${s.photos.slice(0,5).map(p=>`<img src="${p}" loading="lazy">`).join('')}</div>`:''}
@@ -1175,14 +1179,15 @@ function showSessionDetail(id){
   const tk=[s.tackle.rod,s.tackle.reel,(s.tackle.lineType||'')+(s.tackle.lineDetail?' '+s.tackle.lineDetail:''),s.tackle.rig].map(x=>(x||'').trim()).filter(Boolean).map(esc).join(' ／ ');
   const o=openModal(`
     <h2 style="margin:0 0 6px;font-size:17px">${esc(s.date)} ${s.pointName?'📍'+esc(s.pointName):''}</h2>
-    <div class="mini">${esc(s.startTime||'')}${s.endTime?'〜'+esc(s.endTime):''}${hrs?`（${hrs.toFixed(1)}時間）`:''} ${esc(s.method||'')}</div>
+    <div class="mini">${esc(s.startTime||'')}${s.endTime?'〜'+esc(s.endTime):''}${hrs?`（${hrs.toFixed(1)}時間）`:''} ${esc(s.method||'')}${s.boat?' ／ ⛴'+esc(s.boat):''}</div>
     ${env?`<div class="mini">${env}</div>`:''}${tide?`<div class="mini">${tide}</div>`:''}${ev?`<div class="mini">${ev}${td.port?`<br>基準港: ${esc(td.port.name)}${td.port.km!=null?'（約'+td.port.km+'km）':''}`:''}</div>`:''}
     ${td?'<canvas id="detailTide" height="150" style="margin-top:8px"></canvas>':''}
     <h3>釣果 ${sessionTotal(s)}匹</h3>${s.catches.map(c=>`<div class="point-item">${catchLine({...c,tp:catchPhase(s,c)})}</div>`).join('')||'<div class="mini">ボウズ</div>'}
     ${tk?`<h3>タックル</h3><div class="mini">${tk}</div>`:''}
     ${s.memo?`<h3>メモ</h3><div style="white-space:pre-wrap;font-size:14px">${esc(s.memo)}</div>`:''}
     ${s.photos.length?`<h3>写真</h3><div class="photo-preview">${s.photos.map(p=>`<div class="thumb" style="width:92px;height:92px"><img src="${p}"></div>`).join('')}</div>`:''}
-    <div class="row" style="margin-top:14px">
+    <button class="btn small" data-a="share" style="margin-top:14px">📣 SNSに投稿（Instagram・Facebookなど）</button>
+    <div class="row">
       <button class="btn small ghost" data-a="edit">編集</button>
       <button class="btn small danger" data-a="del">削除</button>
       <button class="btn small ghost" data-a="close">閉じる</button>
@@ -1190,12 +1195,117 @@ function showSessionDetail(id){
   o.querySelectorAll('.photo-preview img').forEach(im=>im.onclick=()=>viewPhoto(im.src));
   o.querySelector('[data-a=close]').onclick=()=>o.remove();
   o.querySelector('[data-a=edit]').onclick=()=>{o.remove();editSession(id)};
+  o.querySelector('[data-a=share]').onclick=()=>{o.remove();openShare(id)};
   o.querySelector('[data-a=del]').onclick=async()=>{
     if(!confirm(`${s.date} ${s.pointName||''} の記録を削除しますか？（元に戻せません）`))return;
     await idbDel('sessions',id);if(editingId===id){await clearDraft();resetForm()}
     await loadAll();o.remove();renderAll();toast('削除しました');
   };
   if(td)drawTideChart('detailTide',s,td);
+}
+
+/* ---------------- SNS投稿（共有） ---------------- */
+const SHARE_DEF={place:true,boat:true,size:true,tackle:true,weather:true,tags:true,tagText:'#釣り #釣果 #fishing'};
+function shareOpts(){try{return {...SHARE_DEF,...JSON.parse(localStorage.getItem('flp-share')||'{}')}}catch(e){return {...SHARE_DEF}}}
+function buildCaption(s,o,comment){
+  const L=[];
+  const d=new Date(s.date+'T12:00:00');
+  L.push(`🎣 ${d.getFullYear()}/${d.getMonth()+1}/${d.getDate()}(${'日月火水木金土'[d.getDay()]}) 釣果`);
+  const pl=[o.place&&s.pointName?s.pointName:'',o.boat&&s.boat?s.boat:''].filter(Boolean);
+  if(pl.length)L.push('📍 '+pl.join(' ／ '));
+  // 魚種ごとにまとめる（サイズは大きい順）
+  const g={};
+  s.catches.forEach(c=>{if(!c.species)return;const x=g[c.species]=g[c.species]||{n:0,sizes:[]};x.n+=cnt(c);if(c.sizeCm)x.sizes.push(c.sizeCm)});
+  const fish=Object.entries(g).map(([k,x])=>{
+    const sz=x.sizes.sort((a,b)=>b-a);
+    const szT=!o.size||!sz.length?'':sz.length===1?` ${sz[0]}cm`:` ${sz[sz.length-1]}〜${sz[0]}cm`;
+    return `${k} ${x.n}匹${szT}`;
+  });
+  L.push('🐟 '+(fish.length?fish.join('、'):'ボウズ…'));
+  if(s.method)L.push('🪝 '+s.method);
+  if(o.tackle){
+    const lures=uniq(s.catches.map(c=>c.lure)).slice(0,3).join('、');
+    const tk=[s.tackle.rod,s.tackle.reel,[s.tackle.lineType,s.tackle.lineDetail].filter(Boolean).join(' '),s.tackle.rig].map(x=>(x||'').trim()).filter(Boolean).join(' / ');
+    if(tk)L.push('🎣 '+tk);
+    if(lures)L.push('ルアー・エサ: '+lures);
+  }
+  if(o.weather){
+    const w=s.weather,wx=(w.condition||'').replace(/^\S+\s/,'');
+    const parts=[wx,w.windDir?(w.windDir==='無風'?'無風':w.windDir+'の風'+(w.windMs!=null?w.windMs+'m':'')):'',s.tide.type,w.waterTempC!=null?'水温'+w.waterTempC+'℃':''].filter(Boolean);
+    if(parts.length)L.push('🌤 '+parts.join('・'));
+  }
+  if(comment&&comment.trim())L.push('',comment.trim());
+  if(o.tags){
+    const sp=Object.keys(g).slice(0,5).map(k=>'#'+k.replace(/\s/g,''));
+    const m=s.method?['#'+s.method.replace(/[\s()（）]/g,'')]:[];
+    const t=uniq([...(o.tagText||'').split(/\s+/).filter(x=>x.startsWith('#')),...sp,...m]).join(' ');
+    if(t)L.push('',t);
+  }
+  return L.join('\n');
+}
+async function dataUrlToFile(u,name){const b=await (await fetch(u)).blob();return new File([b],name,{type:b.type||'image/jpeg'})}
+function offerShare(id){
+  const el=$('#bannerArea'),d=document.createElement('div');d.className='banner';
+  d.innerHTML='<span>📣 この釣果をSNSに投稿しますか？</span><button data-y>投稿する</button><button data-n>✕</button>';
+  d.querySelector('[data-y]').onclick=()=>{d.remove();openShare(id)};
+  d.querySelector('[data-n]').onclick=()=>d.remove();
+  el.prepend(d);
+}
+function openShare(id){
+  const s=sessions.find(x=>x.id===id);if(!s)return;
+  const o=shareOpts();
+  const picked=s.photos.map((_,i)=>i<10);            // Instagramは1投稿10枚まで
+  const chk=(k,label,show=true)=>show?`<label class="chk" style="margin-top:6px"><input type="checkbox" data-k="${k}" ${o[k]?'checked':''}>${label}</label>`:'';
+  const m=openModal(`
+    <h2 style="margin:0 0 4px;font-size:16px">📣 SNSに投稿</h2>
+    <div class="mini">載せる項目を選べます（ポイントを隠したい時は「場所」を外してください）</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr">
+      ${chk('place','場所',!!s.pointName)}${chk('boat','船名・渡船名',!!s.boat)}${chk('size','サイズ')}
+      ${chk('tackle','タックル・ルアー')}${chk('weather','天気・潮')}${chk('tags','ハッシュタグ')}
+    </div>
+    <label>コメント</label><textarea id="shComment" placeholder="ひとこと（釣行メモとは別なので、ヒットパターンは公開されません）"></textarea>
+    <label>いつも付けるハッシュタグ</label><input id="shTags" value="${esc(o.tagText)}">
+    <label>投稿文（ここで自由に直せます）</label><textarea id="shText" style="min-height:190px;font-size:14px"></textarea>
+    ${s.photos.length?`<label>写真（タップで選択／解除）</label><div class="photo-preview" id="shPhotos">${s.photos.map((p,i)=>`<div class="thumb" data-i="${i}" style="width:72px;height:72px"><img src="${p}"></div>`).join('')}</div>`:'<div class="mini" style="margin-top:8px">写真がありません。Instagramは写真が必須なので、先に「編集」で写真を追加してください（Facebookは文章だけでも投稿できます）</div>'}
+    <button class="btn" id="shGo">📤 投稿先を選ぶ（Instagram・Facebook…）</button>
+    <button class="btn small ghost" id="shCopy">文章だけコピー</button>
+    <button class="btn small ghost" id="shClose">閉じる</button>
+    <div class="mini" id="shNote" style="margin-top:8px">投稿文は自動でコピーされます。Instagramでは写真を選んだあと、キャプション欄を長押しして「貼り付け」してください。</div>`);
+  const q=x=>m.querySelector(x);
+  let edited=false;
+  const cur=()=>{const r={...o};m.querySelectorAll('[data-k]').forEach(c=>r[c.dataset.k]=c.checked);r.tagText=q('#shTags').value;return r};
+  const regen=()=>{q('#shText').value=buildCaption(s,cur(),q('#shComment').value);edited=false;
+    const r=cur();localStorage.setItem('flp-share',JSON.stringify(r))};
+  const paint=()=>m.querySelectorAll('#shPhotos .thumb').forEach(t=>{t.style.opacity=picked[+t.dataset.i]?'1':'.25';t.style.outline=picked[+t.dataset.i]?'2px solid var(--accent)':'none'});
+  m.querySelectorAll('[data-k]').forEach(c=>c.onchange=()=>{if(edited&&!confirm('投稿文を作り直します（手直しした内容は消えます）。よろしいですか？')){c.checked=!c.checked;return}regen()});
+  q('#shComment').oninput=q('#shTags').oninput=()=>{if(!edited)regen()};
+  q('#shText').oninput=()=>{edited=true};
+  m.querySelectorAll('#shPhotos .thumb').forEach(t=>t.onclick=()=>{const i=+t.dataset.i;
+    if(!picked[i]&&picked.filter(Boolean).length>=10){toast('写真は10枚までです');return}
+    picked[i]=!picked[i];paint()});
+  const copy=async()=>{const t=q('#shText').value;
+    try{await navigator.clipboard.writeText(t);return true}
+    catch(e){try{q('#shText').select();return document.execCommand('copy')}catch(e2){return false}}};
+  q('#shCopy').onclick=async()=>toast(await copy()?'投稿文をコピーしました':'コピーできませんでした。投稿文を長押しして選択してください',3000);
+  q('#shClose').onclick=()=>m.remove();
+  q('#shGo').onclick=async()=>{
+    const text=q('#shText').value, copied=await copy();
+    let files=[];
+    try{files=await Promise.all(s.photos.map((p,i)=>picked[i]?dataUrlToFile(p,`chouka-${s.date}-${i+1}.jpg`):null).filter(Boolean))}catch(e){}
+    if(!navigator.share){
+      q('#shNote').innerHTML='⚠️ このブラウザは共有機能に対応していません。'+(copied?'投稿文はコピー済みなので、':'「文章だけコピー」を押してから、')+'InstagramやFacebookのアプリを開いて貼り付けてください。';return;
+    }
+    const data={text};
+    if(files.length&&navigator.canShare&&navigator.canShare({files}))data.files=files;
+    else if(files.length)q('#shNote').textContent='⚠️ このブラウザは写真つきの共有に対応していません。文章だけ共有します。';
+    try{
+      await navigator.share(data);
+      toast(copied?'投稿文はコピー済みです。キャプション欄に貼り付けてください':'共有しました',4000);
+    }catch(e){
+      if(e.name!=='AbortError')q('#shNote').textContent='⚠️ 共有できませんでした（'+e.message+'）。「文章だけコピー」を使ってください。';
+    }
+  };
+  regen();paint();
 }
 
 /* ---------------- 分析タブ ---------------- */
@@ -1469,6 +1579,7 @@ function buildLists(){
   $('#lureList').innerHTML=byFreq(sessions.flatMap(s=>s.catches.map(c=>c.lure))).slice(0,80).map(n=>`<option value="${esc(n)}">`).join('');
   $('#methodList').innerHTML=methods.map(n=>`<option value="${esc(n)}">`).join('');
   $('#pointNameList').innerHTML=pNames.map(n=>`<option value="${esc(n)}">`).join('');
+  $('#boatList').innerHTML=byFreq(sessions.map(s=>s.boat)).map(n=>`<option value="${esc(n)}">`).join('');
   fillSelect('#fPointSel','登録ポイントから選択',points.map(p=>({v:p.id,t:p.name})));
   fillSelect('#fTackleSel','プリセットなし',presets.map(p=>({v:p.id,t:p.name})));
   fillSelect('#filterSpecies','全魚種',allSp);fillSelect('#filterMethod','全釣法',usedM);
@@ -1501,12 +1612,12 @@ async function importJSON(file){
   await loadAll();renderAll();toast(`${newer.length}件を取り込みました`,3000);
 }
 function exportCSV(){
-  const head=['日付','開始','終了','釣行時間h','釣法','ポイント','緯度','経度','潮回り','月齢','天気','気温','水温','風向','風速m/s','気圧hPa','濁り',
+  const head=['日付','開始','終了','釣行時間h','釣法','ポイント','船名','緯度','経度','潮回り','月齢','天気','気温','水温','風向','風速m/s','気圧hPa','濁り',
     '魚種','サイズcm','重さg','匹数','ヒット時刻','潮位フェーズ','タナm','ルアー・エサ','リリース','ロッド','リール','ライン','仕掛け','メモ'];
   const rows=[head];
   [...sessions].sort((a,b)=>(a.date+a.startTime).localeCompare(b.date+b.startTime)).forEach(s=>{
     const h=sessionHours(s);
-    const base=[s.date,s.startTime,s.endTime,h?h.toFixed(1):'',s.method,s.pointName,s.lat,s.lng,s.tide.type,s.tide.moonAge,s.weather.condition,
+    const base=[s.date,s.startTime,s.endTime,h?h.toFixed(1):'',s.method,s.pointName,s.boat||'',s.lat,s.lng,s.tide.type,s.tide.moonAge,s.weather.condition,
       s.weather.tempC,s.weather.waterTempC,s.weather.windDir,s.weather.windMs,s.weather.pressureHpa,s.weather.clarity];
     const tail=[s.tackle.rod,s.tackle.reel,[s.tackle.lineType,s.tackle.lineDetail].filter(Boolean).join(' '),s.tackle.rig,s.memo];
     const cs=s.catches.length?s.catches:[null];        // ボウズの釣行も1行出す
