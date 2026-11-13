@@ -129,7 +129,7 @@ tr.tap{cursor:pointer}
       <details id="catchMore">
         <summary>時刻・重さ・タナ・リリース</summary>
         <div class="row">
-          <div><label>時刻(空欄=今)</label><input id="cHitTime" type="time"></div>
+          <div><label>時刻(空欄=今)</label><input id="cHitTime" type="text" class="timebox" inputmode="numeric" maxlength="5" autocomplete="off" placeholder="例 0530"></div>
           <div><label>重さ(g)</label><input id="cWeight" type="number" inputmode="numeric" placeholder="1200"></div>
           <div><label>タナ/水深(m)</label><input id="cDepth" type="number" step="0.1" inputmode="decimal" placeholder="3"></div>
         </div>
@@ -147,10 +147,16 @@ tr.tap{cursor:pointer}
 
     <div class="card">
       <h2>📝 釣行情報</h2>
-      <label>日付</label><input id="fDate" type="date">
+      <label>日付（数字4桁で入力できます。例: 1114）</label>
       <div class="row">
-        <div><label>開始</label><input id="fStart" type="time"></div>
-        <div><label>終了（空欄＝保存時刻）</label><input id="fEnd" type="time"></div>
+        <input id="fDate" type="text" class="datebox" inputmode="numeric" maxlength="10" autocomplete="off" placeholder="例 1114">
+        <button class="btn small ghost fit" id="dPrev" type="button">◀前日</button>
+        <button class="btn small ghost fit" id="dToday" type="button">今日</button>
+        <button class="btn small ghost fit" id="dNext" type="button">翌日▶</button>
+      </div>
+      <div class="row">
+        <div><label>開始（数字4桁）</label><input id="fStart" type="text" class="timebox" inputmode="numeric" maxlength="5" autocomplete="off" placeholder="例 0530"></div>
+        <div><label>終了（空欄＝保存時刻）</label><input id="fEnd" type="text" class="timebox" inputmode="numeric" maxlength="5" autocomplete="off" placeholder="例 0530"></div>
       </div>
       <label>釣法</label>
       <input id="fMethod" list="methodList" placeholder="例: フカセ / エギング（自由入力可）" autocomplete="off">
@@ -260,8 +266,8 @@ tr.tap{cursor:pointer}
         <select id="filterTide"><option value="">全潮回り</option></select>
       </div>
       <div class="row" style="margin-top:8px">
-        <input id="filterFrom" type="date" aria-label="開始日">
-        <input id="filterTo" type="date" aria-label="終了日">
+        <input id="filterFrom" type="text" class="datebox" inputmode="numeric" maxlength="10" autocomplete="off" placeholder="開始日 例 1101" aria-label="開始日">
+        <input id="filterTo" type="text" class="datebox" inputmode="numeric" maxlength="10" autocomplete="off" placeholder="終了日 例 1130" aria-label="終了日">
       </div>
       <div class="mini" id="listCount" style="margin-top:8px"></div>
     </div>
@@ -441,6 +447,46 @@ function openModal(inner){
   o.innerHTML='<div class="modal-content">'+inner+'</div>';
   o.onclick=e=>{if(e.target===o)o.remove()};
   document.body.appendChild(o);return o;
+}
+
+/* ---------------- 時刻・日付の入力（端末の時計ダイアログを使わず数字で入力） ---------------- */
+function normTime(v){                       // "530"→"05:30"  "7"→"07:00"  "0713"→"07:13"
+  v=String(v||'').trim();if(!v)return'';
+  let h,m;const c=v.match(/^(\d{1,2})[:：.時](\d{0,2})分?$/);
+  if(c){h=+c[1];m=+(c[2]||0)}
+  else{const d=v.replace(/\D/g,'');if(!d)return null;
+    if(d.length<=2){h=+d;m=0}else if(d.length===3){h=+d[0];m=+d.slice(1)}else{h=+d.slice(0,2);m=+d.slice(2,4)}}
+  return (h>23||m>59)?null:pad(h)+':'+pad(m);
+}
+function normDate(v){                       // "1114"→今年の11/14  "20261114"  "11/14"  "2026-11-14"
+  v=String(v||'').trim();if(!v)return'';
+  let y,m,d;const p=v.split(/[-\/.年月日]/).filter(Boolean);
+  if(p.length===3){y=+p[0];m=+p[1];d=+p[2]}
+  else if(p.length===2){y=new Date().getFullYear();m=+p[0];d=+p[1]}
+  else{const g=v.replace(/\D/g,'');
+    if(g.length===8){y=+g.slice(0,4);m=+g.slice(4,6);d=+g.slice(6)}
+    else if(g.length===4||g.length===3){y=new Date().getFullYear();m=+g.slice(0,g.length-2);d=+g.slice(-2)}
+    else return null}
+  if(y<100)y+=2000;
+  const t=new Date(y,m-1,d);
+  return (t.getFullYear()!==y||t.getMonth()!==m-1||t.getDate()!==d||y<1990||y>2100)?null:ymd(t);
+}
+function bindBoxes(){
+  // change をキャプチャ段階で受けて、他の処理より先に形式をそろえる
+  document.addEventListener('change',e=>{
+    const el=e.target;if(!el.classList)return;
+    const f=el.classList.contains('timebox')?normTime:el.classList.contains('datebox')?normDate:null;if(!f)return;
+    const r=f(el.value);
+    if(r===null){toast(el.classList.contains('timebox')?'時刻は 0530 のように数字4桁で入力してください':'日付は 1114 や 20261114 のように入力してください',3000);el.value=''}
+    else el.value=r;
+  },true);
+  document.addEventListener('input',e=>{     // 4桁(8桁)そろったら自動で整形
+    const el=e.target;if(!el.classList)return;
+    if(el.classList.contains('timebox')&&/^\d{4}$/.test(el.value)){const r=normTime(el.value);if(r)el.value=r}
+    if(el.classList.contains('datebox')&&/^\d{8}$/.test(el.value)){const r=normDate(el.value);if(r)el.value=r}
+  });
+  const shift=n=>{$('#fDate').value=n===0?todayStr():addDays($('#fDate').value||todayStr(),n);refreshMoon();renderCatchList();saveDraftSoon()};
+  $('#dPrev').onclick=()=>shift(-1);$('#dToday').onclick=()=>shift(0);$('#dNext').onclick=()=>shift(1);
 }
 
 /* ---------------- 天文計算（月齢・潮回り・日出没） ---------------- */
@@ -624,7 +670,7 @@ async function init(){
   if(localStorage.getItem('flp-red')==='1')document.body.classList.add('red-mode');
   try{await openDB()}catch(e){alert('データベースを開けませんでした。プライベートモードでは保存できません。\n'+e);return}
   await loadAll();
-  bindTabs();bindRecord();bindList();bindStats();bindPoints();bindSettings();
+  bindBoxes();bindTabs();bindRecord();bindList();bindStats();bindPoints();bindSettings();
   buildLists();
   await restoreDraft();
   renderAll();
@@ -1205,9 +1251,45 @@ function showSessionDetail(id){
 }
 
 /* ---------------- SNS投稿（共有） ---------------- */
-const SHARE_DEF={place:true,boat:true,size:true,tackle:true,weather:true,tags:true,tagText:'#釣り #釣果 #fishing'};
+const SHARE_DEF={style:'prose',place:true,boat:true,size:true,tackle:true,weather:true,tags:true,tagText:'#釣り #釣果 #fishing'};
 function shareOpts(){try{return {...SHARE_DEF,...JSON.parse(localStorage.getItem('flp-share')||'{}')}}catch(e){return {...SHARE_DEF}}}
+function captionParts(s,o){
+  const g={};
+  s.catches.forEach(c=>{if(!c.species)return;const x=g[c.species]=g[c.species]||{n:0,sizes:[]};x.n+=cnt(c);if(c.sizeCm)x.sizes.push(c.sizeCm)});
+  const fish=Object.entries(g).map(([k,x])=>{const sz=x.sizes.sort((a,b)=>b-a);
+    return {name:k,n:x.n,size:!o.size||!sz.length?'':sz.length===1?`${sz[0]}cm`:`${sz[sz.length-1]}〜${sz[0]}cm`}});
+  const sp=Object.keys(g).slice(0,5).map(k=>'#'+k.replace(/\s/g,''));
+  const m=s.method?['#'+s.method.replace(/[\s()（）]/g,'')]:[];
+  const tags=o.tags?uniq([...(o.tagText||'').split(/\s+/).filter(x=>x.startsWith('#')),...sp,...m]).join(' '):'';
+  return {fish,tags};
+}
+function buildProse(s,o,comment){           // ふつうの文章で書く
+  const {fish,tags}=captionParts(s,o),L=[];
+  const d=new Date(s.date+'T12:00:00');
+  const where=[o.place&&s.pointName?s.pointName:'',o.boat&&s.boat?`（${s.boat}）`:''].join('');
+  let head=`${d.getMonth()+1}月${d.getDate()}日(${'日月火水木金土'[d.getDay()]})、`;
+  if(where)head+=(o.place&&s.pointName?where:s.boat)+'で';
+  head+=s.method?`${s.method}${/釣り$/.test(s.method)?'':'釣り'}に行ってきました。`:'釣りに行ってきました。';
+  L.push(head);
+  if(fish.length)L.push('釣果は'+fish.map(f=>`${f.name}${f.n}匹${f.size?`（${f.size}）`:''}`).join('、')+'でした。');
+  else L.push('残念ながらボウズでした…。');
+  if(o.tackle){
+    const tk=[s.tackle.rod,s.tackle.reel,[s.tackle.lineType,s.tackle.lineDetail].filter(Boolean).join(' ')].map(x=>(x||'').trim()).filter(Boolean).join('、');
+    const rig=(s.tackle.rig||'').trim(),lures=uniq(s.catches.map(c=>c.lure)).slice(0,3).join('、');
+    const t=[tk?`タックルは${tk}`:'',rig?`仕掛けは${rig}`:'',lures?`ルアー・エサは${lures}`:''].filter(Boolean);
+    if(t.length)L.push(t.join('、')+'。');
+  }
+  if(o.weather){
+    const w=s.weather,wx=(w.condition||'').replace(/^\S+\s/,'');
+    const t=[wx?`天気は${wx}`:'',w.windDir?(w.windDir==='無風'?'無風':`${w.windDir}の風${w.windMs!=null?w.windMs+'m':''}`):'',s.tide.type?`潮は${s.tide.type}`:'',w.waterTempC!=null?`水温${w.waterTempC}℃`:''].filter(Boolean);
+    if(t.length)L.push(t.join('、')+'。');
+  }
+  if(comment&&comment.trim())L.push('',comment.trim());
+  if(tags)L.push('',tags);
+  return L.join('\n');
+}
 function buildCaption(s,o,comment){
+  if(o.style!=='list')return buildProse(s,o,comment);
   const L=[];
   const d=new Date(s.date+'T12:00:00');
   L.push(`🎣 ${d.getFullYear()}/${d.getMonth()+1}/${d.getDate()}(${'日月火水木金土'[d.getDay()]}) 釣果`);
@@ -1258,6 +1340,7 @@ function openShare(id){
   const chk=(k,label,show=true)=>show?`<label class="chk" style="margin-top:6px"><input type="checkbox" data-k="${k}" ${o[k]?'checked':''}>${label}</label>`:'';
   const m=openModal(`
     <h2 style="margin:0 0 4px;font-size:16px">📣 SNSに投稿</h2>
+    <div class="seg" id="shStyle" style="margin-top:6px"><button data-st="prose">文章で書く</button><button data-st="list">箇条書き</button></div>
     <div class="mini">載せる項目を選べます（ポイントを隠したい時は「場所」を外してください）</div>
     <div style="display:grid;grid-template-columns:1fr 1fr">
       ${chk('place','場所',!!s.pointName)}${chk('boat','船名・渡船名',!!s.boat)}${chk('size','サイズ')}
@@ -1267,13 +1350,16 @@ function openShare(id){
     <label>いつも付けるハッシュタグ</label><input id="shTags" value="${esc(o.tagText)}">
     <label>投稿文（ここで自由に直せます）</label><textarea id="shText" style="min-height:190px;font-size:14px"></textarea>
     ${s.photos.length?`<label>写真（タップで選択／解除）</label><div class="photo-preview" id="shPhotos">${s.photos.map((p,i)=>`<div class="thumb" data-i="${i}" style="width:72px;height:72px"><img src="${p}"></div>`).join('')}</div>`:'<div class="mini" style="margin-top:8px">写真がありません。Instagramは写真が必須なので、先に「編集」で写真を追加してください（Facebookは文章だけでも投稿できます）</div>'}
-    <button class="btn" id="shGo">📤 投稿先を選ぶ（Instagram・Facebook…）</button>
-    <button class="btn small ghost" id="shCopy">文章だけコピー</button>
+    <button class="btn" id="shCopy">📋 この文章をコピー</button>
+    <button class="btn small ghost" id="shGo">📤 写真と一緒にアプリへ送る（Instagram・Facebook…）</button>
     <button class="btn small ghost" id="shClose">閉じる</button>
-    <div class="mini" id="shNote" style="margin-top:8px">投稿文は自動でコピーされます。Instagramでは写真を選んだあと、キャプション欄を長押しして「貼り付け」してください。</div>`);
+    <div class="mini" id="shNote" style="margin-top:8px">コピーした文章は、InstagramやFacebookの投稿欄を長押しして「貼り付け」できます。</div>`);
   const q=x=>m.querySelector(x);
   let edited=false;
-  const cur=()=>{const r={...o};m.querySelectorAll('[data-k]').forEach(c=>r[c.dataset.k]=c.checked);r.tagText=q('#shTags').value;return r};
+  let style=o.style==='list'?'list':'prose';
+  const cur=()=>{const r={...o,style};m.querySelectorAll('[data-k]').forEach(c=>r[c.dataset.k]=c.checked);r.tagText=q('#shTags').value;return r};
+  const paintStyle=()=>m.querySelectorAll('#shStyle button').forEach(b=>b.classList.toggle('on',b.dataset.st===style));
+  m.querySelectorAll('#shStyle button').forEach(b=>b.onclick=()=>{if(edited&&!confirm('投稿文を作り直します（手直しした内容は消えます）。よろしいですか？'))return;style=b.dataset.st;paintStyle();regen()});
   const regen=()=>{q('#shText').value=buildCaption(s,cur(),q('#shComment').value);edited=false;
     const r=cur();localStorage.setItem('flp-share',JSON.stringify(r))};
   const paint=()=>m.querySelectorAll('#shPhotos .thumb').forEach(t=>{t.style.opacity=picked[+t.dataset.i]?'1':'.25';t.style.outline=picked[+t.dataset.i]?'2px solid var(--accent)':'none'});
@@ -1286,14 +1372,14 @@ function openShare(id){
   const copy=async()=>{const t=q('#shText').value;
     try{await navigator.clipboard.writeText(t);return true}
     catch(e){try{q('#shText').select();return document.execCommand('copy')}catch(e2){return false}}};
-  q('#shCopy').onclick=async()=>toast(await copy()?'投稿文をコピーしました':'コピーできませんでした。投稿文を長押しして選択してください',3000);
+  q('#shCopy').onclick=async()=>toast(await copy()?'文章をコピーしました。SNSの投稿欄に貼り付けてください':'コピーできませんでした。投稿文を長押しして選択してください',3500);
   q('#shClose').onclick=()=>m.remove();
   q('#shGo').onclick=async()=>{
     const text=q('#shText').value, copied=await copy();
     let files=[];
     try{files=await Promise.all(s.photos.map((p,i)=>picked[i]?dataUrlToFile(p,`chouka-${s.date}-${i+1}.jpg`):null).filter(Boolean))}catch(e){}
     if(!navigator.share){
-      q('#shNote').innerHTML='⚠️ このブラウザは共有機能に対応していません。'+(copied?'投稿文はコピー済みなので、':'「文章だけコピー」を押してから、')+'InstagramやFacebookのアプリを開いて貼り付けてください。';return;
+      q('#shNote').innerHTML='⚠️ このブラウザは共有機能に対応していません。'+(copied?'投稿文はコピー済みなので、':'「この文章をコピー」を押してから、')+'InstagramやFacebookのアプリを開いて貼り付けてください。';return;
     }
     const data={text};
     if(files.length&&navigator.canShare&&navigator.canShare({files}))data.files=files;
@@ -1302,10 +1388,10 @@ function openShare(id){
       await navigator.share(data);
       toast(copied?'投稿文はコピー済みです。キャプション欄に貼り付けてください':'共有しました',4000);
     }catch(e){
-      if(e.name!=='AbortError')q('#shNote').textContent='⚠️ 共有できませんでした（'+e.message+'）。「文章だけコピー」を使ってください。';
+      if(e.name!=='AbortError')q('#shNote').textContent='⚠️ 共有できませんでした（'+e.message+'）。「この文章をコピー」を使ってください。';
     }
   };
-  regen();paint();
+  paintStyle();regen();paint();
 }
 
 /* ---------------- 分析タブ ---------------- */
