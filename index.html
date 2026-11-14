@@ -28,7 +28,8 @@ body.red-mode{--bg:#1a0000;--card:#2a0a0a;--line:#4a1a1a;--text:#ffb3b3;--muted:
 body.red-mode img,body.red-mode #map{filter:grayscale(1) brightness(.7) sepia(1) hue-rotate(-50deg) saturate(3)}
 header{position:sticky;top:0;z-index:1000;background:var(--card);border-bottom:1px solid var(--line);
   padding:10px 14px;display:flex;align-items:center;gap:8px}
-header h1{font-size:17px;margin:0;flex:1}
+header h1{font-size:17px;margin:0;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+@media (max-width:380px){header h1{font-size:15px}header button{padding:8px 9px}}
 header button{background:transparent;border:1px solid var(--line);color:var(--text);border-radius:8px;
   padding:8px 12px;font-size:15px;min-height:40px}
 nav{position:fixed;bottom:0;left:0;right:0;z-index:1000;background:var(--card);border-top:1px solid var(--line);
@@ -107,6 +108,13 @@ tr.tap{cursor:pointer}
 .seg button{background:var(--bg);border:1px solid var(--line);color:var(--muted);border-radius:16px;padding:6px 12px;font-size:12px}
 .seg button.on{background:var(--accent2);color:#fff;border-color:var(--accent2)}
 .chk{display:flex;align-items:center;font-size:14px;color:var(--text);margin-top:10px}
+.counter{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:2px 6px;flex:1;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:4px 6px}
+.counter span{flex-basis:100%;text-align:center;font-size:12px;color:var(--muted);white-space:nowrap}
+.counter b{min-width:28px;text-align:center;font-size:20px}
+.counter button{width:38px;height:40px;flex:0 0 38px;border-radius:8px;border:1px solid var(--line);background:var(--card);color:var(--text);font-size:20px}
+.quick{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.quick button{background:var(--accent2);color:#fff;border:0;border-radius:20px;padding:10px 14px;font-size:15px;font-weight:600;min-height:44px}
+.cthumb{width:40px;height:40px;object-fit:cover;border-radius:6px;margin-left:6px;vertical-align:middle}
 </style>
 </head>
 <body>
@@ -124,27 +132,45 @@ tr.tap{cursor:pointer}
 
     <div class="card">
       <h2>🐟 釣果を追加 <span class="badge" id="catchBadge" style="display:none">0</span></h2>
+      <div class="row" style="align-items:flex-end">
+        <div><label style="margin-top:0">狙いの魚（外道と分けて集計）</label><input id="fTarget" list="speciesList" placeholder="例: マダイ" autocomplete="off"></div>
+      </div>
+      <div class="row" style="margin-top:8px">
+        <div class="counter"><span>アタリ</span><button type="button" data-cnt="fBites" data-d="-1">−</button><b id="fBitesV">0</b><button type="button" data-cnt="fBites" data-d="1">＋</button></div>
+        <div class="counter"><span>バラシ</span><button type="button" data-cnt="fLost" data-d="-1">−</button><b id="fLostV">0</b><button type="button" data-cnt="fLost" data-d="1">＋</button></div>
+      </div>
+      <input type="hidden" id="fBites"><input type="hidden" id="fLost">
+      <div class="quick" id="quickRow"></div>
       <div class="row">
         <div><label>魚種</label><input id="cSpecies" list="speciesList" placeholder="例: チヌ" autocomplete="off"></div>
         <div style="flex:0 0 76px"><label>cm</label><input id="cSize" type="number" step="0.1" inputmode="decimal" placeholder="45"></div>
         <div style="flex:0 0 62px"><label>匹</label><input id="cCount" type="number" inputmode="numeric" value="1" min="1"></div>
       </div>
       <label>ルアー / エサ（次の1匹にも引き継ぎます）</label>
-      <input id="cLure" list="lureList" placeholder="例: サイレントアサシン99F イワシ" autocomplete="off">
+      <input id="cLure" list="lureList" placeholder="例: サイレントアサシン99F / オキアミ" autocomplete="off">
+      <div class="row" style="margin-top:6px">
+        <input id="cColor" list="colorList" placeholder="カラー 例: イワシ" autocomplete="off">
+        <input id="cLureW" type="number" step="0.5" inputmode="decimal" placeholder="重さ g" style="flex:0 0 96px">
+      </div>
       <details id="catchMore">
-        <summary>時刻・重さ・タナ・リリース</summary>
+        <summary>時刻・重さ・タナ・リリース・写真</summary>
         <div class="row">
           <div><label>時刻(空欄=今)</label><input id="cHitTime" type="text" class="timebox" inputmode="numeric" maxlength="5" autocomplete="off" placeholder="例 0530"></div>
           <div><label>重さ(g)</label><input id="cWeight" type="number" inputmode="numeric" placeholder="1200"></div>
           <div><label>タナ/水深(m)</label><input id="cDepth" type="number" step="0.1" inputmode="decimal" placeholder="3"></div>
         </div>
         <label class="chk"><input id="cReleased" type="checkbox">リリースした</label>
+        <label>この魚の写真（検寸写真など）</label>
+        <input id="cPhoto" type="file" accept="image/*">
+        <div id="cPhotoPrev" class="photo-preview"></div>
       </details>
+      <label class="chk"><input id="cGps" type="checkbox">釣れた位置も記録する（船の流し替え用・自分だけ、公開されません）</label>
       <button class="btn small" id="addCatch">＋ この釣果を追加</button>
       <button class="btn small ghost" id="cancelCatchEdit" style="display:none">釣果の編集をやめる</button>
       <div id="catchList" style="margin-top:12px"></div>
       <datalist id="speciesList"></datalist>
       <datalist id="lureList"></datalist>
+      <datalist id="colorList"></datalist>
       <datalist id="methodList"></datalist>
       <datalist id="pointNameList"></datalist>
       <datalist id="boatList"></datalist>
@@ -316,6 +342,9 @@ tr.tap{cursor:pointer}
         <div class="stat"><b id="stBest">-</b><small>最大(cm)</small></div>
         <div class="stat"><b id="stCpue">-</b><small>匹/時間</small></div>
         <div class="stat"><b id="stSpecies">0</b><small>魚種数</small></div>
+        <div class="stat"><b id="stTarget">-</b><small>狙い物 達成率</small></div>
+        <div class="stat"><b id="stBites">-</b><small>アタリ/釣行</small></div>
+        <div class="stat"><b id="stLost">-</b><small>バラシ率</small></div>
       </div>
     </div>
     <div class="card"><h2>🏆 魚種別・自己記録</h2><div class="mini">行をタップするとその魚種で絞り込みます</div><div id="speciesRank"></div></div>
@@ -327,6 +356,8 @@ tr.tap{cursor:pointer}
     <div class="card"><h2>🌤️ 天気別</h2><div id="weatherTable"></div></div>
     <div class="card"><h2>🎚️ 気圧帯別</h2><div id="pressureTable"></div></div>
     <div class="card"><h2>🎣 ルアー・エサ別</h2><div id="lureRank"></div></div>
+    <div class="card"><h2>🎨 カラー別</h2><div id="colorRank"></div></div>
+    <div class="card"><h2>⚖️ ルアー・オモリの重さ別</h2><div id="weightRank"></div></div>
     <div class="card"><h2>📍 ポイント別</h2><div id="pointExpect"></div></div>
     <div class="card"><h2>📅 月別（シーズン）</h2><canvas id="monthChart" height="170"></canvas><div id="yearTable" style="margin-top:8px"></div></div>
     <div class="card">
@@ -765,7 +796,7 @@ const METHODS=['ルアー','エギング','ショアジギング','オフショ�
   '渓流エサ','フライ','テンカラ','ワカサギ','その他'];
 const TIDES=['大潮','中潮','小潮','長潮','若潮'];
 const FORM_IDS=['fDate','fStart','fEnd','fMethod','fPointName','fPointSel','fBoat','fPort','fTackleSel','fRod','fReel','fLineType',
-  'fLineDetail','fRig','fWeather','fTemp','fWater','fWindDir','fWindMs','fPressure','fWave','fTide','fClarity','fMemo','cLure','fShare'];
+  'fLineDetail','fRig','fWeather','fTemp','fWater','fWindDir','fWindMs','fPressure','fWave','fTide','fClarity','fMemo','cLure','fShare','fTarget','fBites','fLost','cColor','cLureW'];
 
 let db;
 function openDB(){return new Promise((res,rej)=>{
@@ -1073,6 +1104,7 @@ async function loadAll(){
     s.catches.forEach(c=>{c.species=canonSpecies(c.species)})};   // 呼び名は表示・集計の時にそろえる（元データは書き換えない）
   sessions.forEach(fix);remotes.forEach(fix);
 }
+function allPhotos(s){return [...(s.photos||[]),...(s.catches||[]).flatMap(c=>c.photos||[])]}
 function findSession(id){return sessions.find(x=>x.id===id)||remotes.find(x=>x.id===id)||null}
 function sharedPool(){                     // みんなの釣果 = 公開中の自分の記録 + 仲間の記録
   const me=cloudName()||'自分';
@@ -1106,8 +1138,17 @@ function showTab(name){
 }
 
 /* ---------------- 記録タブ ---------------- */
+let catchPhoto=null;                       // 追加しようとしている釣果の写真
+const openGroups=new Set();                // 釣果一覧で開いているまとめ行
 function bindRecord(){
   $('#addCatch').onclick=addOrUpdateCatch;
+  $$('[data-cnt]').forEach(b=>b.onclick=()=>{const el=$('#'+b.dataset.cnt);el.value=Math.max(0,(+el.value||0)+(+b.dataset.d));
+    renderCounters();saveDraftSoon();if(navigator.vibrate)navigator.vibrate(20)});
+  $('#fTarget').onchange=()=>{const v=canonSpecies($('#fTarget').value);$('#fTarget').value=v;renderQuick()};
+  $('#cGps').checked=localStorage.getItem('flp-cgps')==='1';
+  $('#cGps').onchange=e=>localStorage.setItem('flp-cgps',e.target.checked?'1':'0');
+  $('#cPhoto').onchange=async e=>{const f=e.target.files[0];e.target.value='';if(!f)return;
+    try{catchPhoto=await compressImage(f);renderCatchPhoto()}catch(err){toast('写真を読めませんでした')}};
   $('#cancelCatchEdit').onclick=()=>{editingCatchId=null;clearCatchForm(false);renderCatchList()};
   $('#gpsBtn').onclick=async()=>{
     try{
@@ -1211,6 +1252,37 @@ function refreshMoon(){                     // 月齢・潮回り・満干・潮
   applyTidePhases(currentTide,date,$('#fStart').value,$('#fEnd').value,currentCatches);
 }
 
+function renderCounters(){$('#fBitesV').textContent=+$('#fBites').value||0;$('#fLostV').textContent=+$('#fLost').value||0}
+function renderCatchPhoto(){
+  const el=$('#cPhotoPrev');
+  el.innerHTML=catchPhoto?`<div class="thumb"><img src="${catchPhoto}"><button class="del" type="button">✕</button></div>`:'';
+  if(catchPhoto)el.querySelector('.del').onclick=()=>{catchPhoto=null;renderCatchPhoto()};
+}
+function renderQuick(){                    // 数釣り用「＋1」ボタン
+  const t=canonSpecies($('#fTarget').value);
+  const sp=uniq([t,...[...currentCatches].reverse().map(c=>c.species)]).slice(0,6);
+  $('#quickRow').innerHTML=sp.map(x=>`<button type="button" data-q="${esc(x)}">＋1 ${esc(x)}</button>`).join('');
+  $$('#quickRow [data-q]').forEach(b=>b.onclick=()=>quickAdd(b.dataset.q));
+}
+function attachCatchGps(c){
+  if(!$('#cGps').checked)return;
+  getGPS().then(ll=>{c.lat=+ll.lat.toFixed(6);c.lng=+ll.lng.toFixed(6);saveDraftSoon()}).catch(()=>{});
+}
+function quickAdd(sp){
+  const isToday=$('#fDate').value===todayStr();
+  const c={id:uid(),photos:[],species:sp,sizeCm:0,weightG:null,count:1,hitTime:isToday&&!editingId?nowTime():'',depthM:null,
+    lure:$('#cLure').value.trim(),lureColor:$('#cColor').value.trim(),lureWeight:num($('#cLureW').value),released:false};
+  currentCatches.push(c);attachCatchGps(c);
+  if(navigator.vibrate)navigator.vibrate(40);
+  toast(`${sp} +1（この釣行 ${currentCatches.filter(x=>x.species===sp).reduce((a,x)=>a+cnt(x),0)}匹目）`,1400);
+  refreshMoon();renderCatchList();saveDraftSoon();
+}
+function personalBest(sp,excludeId){       // これまでの最大サイズ
+  let m=0;
+  sessions.forEach(s=>{if(s.id===editingId)return;s.catches.forEach(c=>{if(c.species===sp&&(c.sizeCm||0)>m)m=c.sizeCm})});
+  currentCatches.forEach(c=>{if(c.id!==excludeId&&c.species===sp&&(c.sizeCm||0)>m)m=c.sizeCm});
+  return m;
+}
 function addOrUpdateCatch(){
   const raw=$('#cSpecies').value.trim();
   if(!raw){toast('魚種を入力してください');$('#cSpecies').focus();return}
@@ -1221,21 +1293,28 @@ function addOrUpdateCatch(){
   if(!hit&&!editingCatchId&&isToday&&!editingId)hit=nowTime();   // その場記録は現在時刻を自動打刻
   const data={species:sp,sizeCm:num($('#cSize').value)||0,weightG:num($('#cWeight').value),
     count:Math.max(1,parseInt($('#cCount').value)||1),hitTime:hit||'',depthM:num($('#cDepth').value),
-    lure:$('#cLure').value.trim(),released:$('#cReleased').checked};
+    lure:$('#cLure').value.trim(),lureColor:$('#cColor').value.trim(),lureWeight:num($('#cLureW').value),
+    released:$('#cReleased').checked,photos:catchPhoto?[catchPhoto]:[]};
+  const pb=data.sizeCm?personalBest(sp,editingCatchId):0;
   if(editingCatchId){
     const c=currentCatches.find(x=>x.id===editingCatchId);if(c)Object.assign(c,data);
     editingCatchId=null;toast('釣果を更新しました');
   }else{
-    currentCatches.push({id:uid(),photos:[],...data});
+    const c={id:uid(),...data};currentCatches.push(c);attachCatchGps(c);
     toast(`${sp} を追加しました（保存はまだです）`);
     if(navigator.vibrate)navigator.vibrate(40);
   }
+  if(data.sizeCm&&pb&&data.sizeCm>pb){
+    setTimeout(()=>{toast(`🎉 自己記録更新！ ${sp} ${data.sizeCm}cm（これまで ${pb}cm）`,5000);if(navigator.vibrate)navigator.vibrate([80,60,80,60,200])},300);
+  }
+  catchPhoto=null;renderCatchPhoto();
   clearCatchForm(true);refreshMoon();renderCatchList();saveDraftSoon();
 }
 function clearCatchForm(keepLure){
   $('#cSpecies').value='';$('#cSize').value='';$('#cCount').value='1';$('#cHitTime').value='';
   $('#cWeight').value='';$('#cDepth').value='';$('#cReleased').checked=false;
-  if(!keepLure)$('#cLure').value='';
+  catchPhoto=null;renderCatchPhoto();
+  if(!keepLure){$('#cLure').value='';$('#cColor').value='';$('#cLureW').value=''}
   $('#addCatch').textContent='＋ この釣果を追加';$('#cancelCatchEdit').style.display='none';
 }
 function catchLine(c){
@@ -1247,16 +1326,45 @@ function catchLine(c){
   if(c.hitTime)sub.push('⏰'+c.hitTime);
   if(c.tp)sub.push('🌊'+phaseLabel(c.tp));
   if(c.depthM!=null)sub.push('タナ'+c.depthM+'m');
-  if(c.lure)sub.push('🎣'+esc(c.lure));
+  if(c.lure||c.lureColor||c.lureWeight)sub.push('🎣'+esc([c.lure,c.lureColor,c.lureWeight?c.lureWeight+'g':''].filter(Boolean).join(' ')));
   if(c.released)sub.push('リリース');
-  return `<div>${parts.join(' ')}${sub.length?`<div class="mini">${sub.join(' ／ ')}</div>`:''}</div>`;
+  if(c.lat!=null)sub.push('📍位置あり');
+  const img=c.photos&&c.photos.length?`<img class="cthumb" src="${c.photos[0]}" data-view-photo>`:'';
+  return `<div>${parts.join(' ')}${img}${sub.length?`<div class="mini">${sub.join(' ／ ')}</div>`:''}</div>`;
+}
+function catchGroups(list){                // 数釣り用: サイズなしの同じ魚・同じルアーは1行にまとめる
+  const out=[],idx={};
+  list.forEach(c=>{
+    if(c.sizeCm||c.photos?.length||c.weightG){out.push({one:c});return}
+    const k=[c.species,c.lure||'',c.lureColor||''].join('|');
+    if(idx[k]==null){idx[k]=out.length;out.push({key:k,items:[]})}
+    out[idx[k]].items.push(c);
+  });
+  return out.map(g=>g.items&&g.items.length===1?{one:g.items[0]}:g);
 }
 function renderCatchList(){
+  renderCounters();renderQuick();
   const el=$('#catchList');const total=currentCatches.reduce((a,c)=>a+cnt(c),0);
   const badge=$('#catchBadge');badge.style.display=total?'':'none';badge.textContent=total+'匹';
   if(!currentCatches.length){el.innerHTML='<div class="mini">まだ釣果はありません（ボウズでも釣行は保存できます）</div>';return}
-  el.innerHTML=currentCatches.map(c=>`<div class="point-item" ${c.id===editingCatchId?'style="border-color:var(--warn)"':''}>
-    ${catchLine(c)}<button data-edit="${c.id}" aria-label="編集">✎</button><button class="x" data-id="${c.id}" aria-label="削除">✕</button></div>`).join('');
+  const row=c=>`<div class="point-item" ${c.id===editingCatchId?'style="border-color:var(--warn)"':''}>
+    ${catchLine(c)}<button data-edit="${c.id}" aria-label="編集">✎</button><button class="x" data-id="${c.id}" aria-label="削除">✕</button></div>`;
+  el.innerHTML=catchGroups(currentCatches).map(g=>{
+    if(g.one)return row(g.one);
+    const n=g.items.reduce((a,c)=>a+cnt(c),0),c0=g.items[0];
+    const times=g.items.map(c=>c.hitTime).filter(Boolean).sort();
+    const open=openGroups.has(g.key);
+    return `<div class="point-item"><div data-grp="${esc(g.key)}" style="cursor:pointer"><b>${esc(c0.species)}</b> ×${n} ${open?'▲':'▼'}
+      <div class="mini">${times.length?'⏰'+times[0]+(times.length>1?'〜'+times.at(-1):''):''}${c0.lure?' ／ 🎣'+esc([c0.lure,c0.lureColor].filter(Boolean).join(' ')):''}</div></div>
+      <button data-undo="${esc(g.key)}" aria-label="1匹取り消し" style="font-size:14px">−1</button></div>`+(open?g.items.map(row).join(''):'');
+  }).join('');
+  el.querySelectorAll('[data-grp]').forEach(d=>d.onclick=()=>{const k=d.dataset.grp;openGroups.has(k)?openGroups.delete(k):openGroups.add(k);renderCatchList()});
+  el.querySelectorAll('[data-undo]').forEach(b=>b.onclick=()=>{
+    const k=b.dataset.undo;const g=catchGroups(currentCatches).find(x=>x.key===k);if(!g)return;
+    const last=g.items[g.items.length-1];currentCatches=currentCatches.filter(c=>c!==last);
+    toast(`${last.species} を1匹取り消しました`);refreshMoon();renderCatchList();saveDraftSoon();
+  });
+  el.querySelectorAll('[data-view-photo]').forEach(im=>im.onclick=e=>{e.stopPropagation();viewPhoto(im.src)});
   el.querySelectorAll('button[data-id]').forEach(b=>b.onclick=()=>{
     currentCatches=currentCatches.filter(c=>c.id!==b.dataset.id);
     if(editingCatchId===b.dataset.id){editingCatchId=null;clearCatchForm(true)}
@@ -1267,7 +1375,8 @@ function renderCatchList(){
     editingCatchId=c.id;
     $('#cSpecies').value=c.species;$('#cSize').value=c.sizeCm||'';$('#cCount').value=cnt(c);
     $('#cHitTime').value=c.hitTime||'';$('#cWeight').value=c.weightG??'';$('#cDepth').value=c.depthM??'';
-    $('#cLure').value=c.lure||'';$('#cReleased').checked=!!c.released;
+    $('#cLure').value=c.lure||'';$('#cColor').value=c.lureColor||'';$('#cLureW').value=c.lureWeight??'';$('#cReleased').checked=!!c.released;
+    catchPhoto=c.photos&&c.photos[0]||null;renderCatchPhoto();
     $('#catchMore').open=true;$('#addCatch').textContent='✔ この釣果を更新';$('#cancelCatchEdit').style.display='';
     renderCatchList();$('#cSpecies').scrollIntoView({block:'center'});
   });
@@ -1539,6 +1648,7 @@ async function saveSession(){
     sun:currentLatLng?sunTimes(date,currentLatLng.lat,currentLatLng.lng):null,
     memo:$('#fMemo').value,photos:[...currentPhotos],catches,
     share:$('#fShare').value||shareDefault(),
+    target:canonSpecies($('#fTarget').value),bites:num($('#fBites').value),lost:num($('#fLost').value),
     createdAt:old?.createdAt||Date.now(),updatedAt:Date.now()
   };
   try{
@@ -1567,7 +1677,8 @@ async function editSession(id){
       fLineType:s.tackle.lineType||'',fLineDetail:s.tackle.lineDetail||'',fRig:s.tackle.rig||'',
       fWeather:s.weather.condition||'',fTemp:s.weather.tempC??'',fWater:s.weather.waterTempC??'',
       fWindDir:s.weather.windDir||'',fWindMs:s.weather.windMs??'',fPressure:s.weather.pressureHpa??'',fWave:s.weather.waveM??'',
-      fTide:s.tide.type||'',fClarity:s.weather.clarity||'',fMemo:s.memo||'',cLure:'',fShare:s.share||shareDefault()},
+      fTide:s.tide.type||'',fClarity:s.weather.clarity||'',fMemo:s.memo||'',cLure:'',fShare:s.share||shareDefault(),
+      fTarget:s.target||'',fBites:s.bites??'',fLost:s.lost??'',cColor:'',cLureW:''},
     catches:s.catches.map(c=>({...c})),photos:[...s.photos],
     latlng:s.lat!=null?{lat:s.lat,lng:s.lng}:null,
     editingId:s.id,tideManual:true
@@ -1625,7 +1736,7 @@ function renderSessions(){
       <div class="title">${esc(s.date)}(${day}) ${s.startTime?esc(s.startTime):''}${s.endTime?'〜'+esc(s.endTime):''} ${s.pointName?'📍'+esc(s.pointName):(all?'<span class="mini">📍非公開</span>':'')}${s.boat?' ⛴'+esc(s.boat):''}${lock}</div>
       <div class="meta">${meta}</div>
       <div class="meta">🐟 ${total?`<b style="color:var(--text)">${total}匹</b> ${sp}`:'ボウズ'}</div>
-      ${s.photos.length?`<div class="thumbs">${s.photos.slice(0,5).map(p=>`<img src="${p}" loading="lazy">`).join('')}</div>`:''}
+      ${allPhotos(s).length?`<div class="thumbs">${allPhotos(s).slice(0,5).map(p=>`<img src="${p}" loading="lazy">`).join('')}</div>`:''}
       <div class="acts"><button class="btn small ghost" data-view="${s.id}">詳細</button>
       ${s._r?'':`<button class="btn small ghost" data-edit="${s.id}">編集</button>`}</div>
     </div>`;
@@ -1671,6 +1782,7 @@ function showSessionDetail(id){
     ${tk?`<h3>タックル</h3><div class="mini">${tk}</div>`:''}
     ${s.memo?`<h3>メモ</h3><div style="white-space:pre-wrap;font-size:14px">${esc(s.memo)}</div>`:''}
     ${s.photos.length?`<h3>写真</h3><div class="photo-preview">${s.photos.map(p=>`<div class="thumb" style="width:92px;height:92px"><img src="${p}"></div>`).join('')}</div>`:''}
+    ${!ro&&s.catches.some(c=>c.lat!=null)?`<h3>釣れた位置</h3><div id="catchMap" style="height:220px;border-radius:10px"></div>`:''}
     ${ro?`<button class="btn small ghost" data-a="close" style="margin-top:14px">閉じる</button>`:`
     ${isCloudReady()?`<div class="mini" style="margin-top:10px">仲間への公開: <b>${s.share==='place'?'場所・船名も公開':s.share==='catch'?'釣果だけ公開':'公開しない'}</b>（編集で変更）</div>`:''}
     <button class="btn small" data-a="share" style="margin-top:14px">📣 SNSに投稿（Instagram・Facebookなど）</button>
@@ -1682,6 +1794,14 @@ function showSessionDetail(id){
   o.querySelectorAll('.photo-preview img').forEach(im=>im.onclick=()=>viewPhoto(im.src));
   o.querySelector('[data-a=close]').onclick=()=>o.remove();
   if(td)drawTideChart('detailTide',s,td);
+  o.querySelectorAll('[data-view-photo]').forEach(im=>im.onclick=()=>viewPhoto(im.src));
+  if(!ro&&o.querySelector('#catchMap')&&typeof L!=='undefined'){
+    const pts=s.catches.filter(c=>c.lat!=null);
+    const m=L.map(o.querySelector('#catchMap')).setView([pts[0].lat,pts[0].lng],14);
+    L.tileLayer('https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/{z}/{x}/{y}.jpg',{maxZoom:18,attribution:'地理院タイル'}).addTo(m);
+    pts.forEach(c=>L.circleMarker([c.lat,c.lng],{radius:7,color:'#fff',weight:2,fillColor:'#e67e22',fillOpacity:1}).addTo(m).bindPopup(esc(c.species)+(c.sizeCm?' '+c.sizeCm+'cm':'')+(c.hitTime?' '+c.hitTime:'')));
+    if(pts.length>1)m.fitBounds(pts.map(c=>[c.lat,c.lng]),{padding:[20,20],maxZoom:16});
+  }
   if(ro)return;
   o.querySelector('[data-a=edit]').onclick=()=>{o.remove();editSession(id)};
   o.querySelector('[data-a=share]').onclick=()=>{o.remove();openShare(id)};
@@ -1844,7 +1964,8 @@ function offerShare(id){
 function openShare(id){
   const s=sessions.find(x=>x.id===id);if(!s)return;
   const o=shareOpts();
-  const picked=s.photos.map(()=>false);           // 写真は自分で選ぶ（カードの上に載ります）
+  const PH=allPhotos(s);
+  const picked=PH.map(()=>false);           // 写真は自分で選ぶ（カードの上に載ります）
   const chk=(k,label,show=true)=>show?`<label class="chk" style="margin-top:6px"><input type="checkbox" data-k="${k}" ${o[k]?'checked':''}>${label}</label>`:'';
   const m=openModal(`
     <h2 style="margin:0 0 4px;font-size:16px">📣 SNSに投稿</h2>
@@ -1859,7 +1980,7 @@ function openShare(id){
     <label>投稿文（ここで自由に直せます）</label><textarea id="shText" style="min-height:190px;font-size:14px"></textarea>
     <label>投稿する画像（Instagram用。文章を画像にしたものです）</label>
     <img id="shCard" style="width:100%;border-radius:8px;border:1px solid var(--line);display:block">
-    ${s.photos.length?`<label>魚の写真を載せる（タップで選択。1枚目がカードの上に入り、2枚目以降は別の画像として付きます）</label><div class="photo-preview" id="shPhotos">${s.photos.map((p,i)=>`<div class="thumb" data-i="${i}" style="width:72px;height:72px"><img src="${p}"></div>`).join('')}</div>`:''}
+    ${PH.length?`<label>魚の写真を載せる（タップで選択。1枚目がカードの上に入り、2枚目以降は別の画像として付きます）</label><div class="photo-preview" id="shPhotos">${PH.map((p,i)=>`<div class="thumb" data-i="${i}" style="width:72px;height:72px"><img src="${p}"></div>`).join('')}</div>`:''}
     <label class="chk"><input type="checkbox" id="shUseCard" checked>文章の画像（カード）を付ける</label>
     <button class="btn" id="shGo">📷 Instagramなどへ送る（画像＋文章）</button>
     <button class="btn small ghost" id="shCopy">📋 文章だけコピー（Facebook向け）</button>
@@ -1877,7 +1998,7 @@ function openShare(id){
   let order=[];                                   // 選んだ順
   const paint=()=>m.querySelectorAll('#shPhotos .thumb').forEach(t=>{const k=order.indexOf(+t.dataset.i);t.style.opacity=k>=0?'1':'.35';t.style.outline=k>=0?'3px solid var(--accent)':'none';t.title=k>=0?(k+1)+'枚目':''});
   let cardUrl='',cardTimer;
-  const renderCard=()=>{clearTimeout(cardTimer);cardTimer=setTimeout(async()=>{cardUrl=await drawCard(s,cur(),q('#shComment').value,order.length?s.photos[order[0]]:null);q('#shCard').src=cardUrl},150)};
+  const renderCard=()=>{clearTimeout(cardTimer);cardTimer=setTimeout(async()=>{cardUrl=await drawCard(s,cur(),q('#shComment').value,order.length?PH[order[0]]:null);q('#shCard').src=cardUrl},150)};
   m.querySelectorAll('[data-k]').forEach(c=>c.onchange=()=>{if(edited&&!confirm('投稿文を作り直します（手直しした内容は消えます）。よろしいですか？')){c.checked=!c.checked;return}regen()});
   q('#shComment').oninput=q('#shTags').oninput=()=>{if(!edited)regen();else renderCard()};
   q('#shText').oninput=()=>{edited=true};
@@ -1885,7 +2006,7 @@ function openShare(id){
     if(k>=0)order.splice(k,1);
     else{if(order.length>=9){toast('写真は9枚までです（カードと合わせて10枚）');return}order.push(i)}
     paint();renderCard()});
-  q('#shSave').onclick=async()=>{if(!cardUrl)cardUrl=await drawCard(s,cur(),q('#shComment').value,order.length?s.photos[order[0]]:null);
+  q('#shSave').onclick=async()=>{if(!cardUrl)cardUrl=await drawCard(s,cur(),q('#shComment').value,order.length?PH[order[0]]:null);
     const a=document.createElement('a');a.href=cardUrl;a.download=`chouka-card-${s.date}.jpg`;document.body.appendChild(a);a.click();a.remove();toast('カード画像を保存しました')};
   const copy=async()=>{const t=q('#shText').value;
     try{await navigator.clipboard.writeText(t);return true}
@@ -1897,9 +2018,9 @@ function openShare(id){
     let files=[];
     try{
       const useCard=q('#shUseCard').checked;
-      if(useCard){cardUrl=await drawCard(s,cur(),q('#shComment').value,order.length?s.photos[order[0]]:null);files.push(await dataUrlToFile(cardUrl,`chouka-card-${s.date}.jpg`))}
+      if(useCard){cardUrl=await drawCard(s,cur(),q('#shComment').value,order.length?PH[order[0]]:null);files.push(await dataUrlToFile(cardUrl,`chouka-card-${s.date}.jpg`))}
       const rest=useCard?order.slice(1):order;
-      for(const [n,i] of rest.entries())files.push(await dataUrlToFile(s.photos[i],`chouka-${s.date}-${n+1}.jpg`));
+      for(const [n,i] of rest.entries())files.push(await dataUrlToFile(PH[i],`chouka-${s.date}-${n+1}.jpg`));
     }catch(e){console.warn(e)}
     if(!navigator.share){
       q('#shNote').innerHTML='⚠️ このブラウザは共有機能に対応していません。'+(copied?'投稿文はコピー済みなので、':'「この文章をコピー」を押してから、')+'InstagramやFacebookのアプリを開いて貼り付けてください。';return;
@@ -1951,6 +2072,14 @@ function renderStats(){
   $('#stBest').textContent=best?best.c.sizeCm:'-';
   $('#stCpue').textContent=hrs?(hc/hrs).toFixed(2):'-';
   $('#stSpecies').textContent=new Set(rows.map(r=>r.c.species)).size;
+  // 狙い物・アタリ・バラシ
+  const tg=ss.filter(s=>s.target&&(!fsp||s.target===fsp));
+  $('#stTarget').textContent=tg.length?Math.round(tg.filter(s=>s.catches.some(c=>c.species===s.target)).length/tg.length*100)+'%':'-';
+  const bs=ss.filter(s=>s.bites!=null&&s.bites!=='');
+  $('#stBites').textContent=bs.length?(bs.reduce((a,s)=>a+(+s.bites||0),0)/bs.length).toFixed(1):'-';
+  const ls=ss.filter(s=>s.lost!=null&&s.lost!=='');
+  const lostN=ls.reduce((a,s)=>a+(+s.lost||0),0),landN=ls.reduce((a,s)=>a+sessionTotal(s),0);
+  $('#stLost').textContent=ls.length&&(lostN+landN)?Math.round(lostN/(lostN+landN)*100)+'%':'-';
 
   // 魚種別・自己記録
   const sp={};
@@ -2002,6 +2131,13 @@ function renderStats(){
   const lu={};
   rows.forEach(({c})=>{if(!c.lure)return;const o=lu[c.lure]=lu[c.lure]||{n:0,max:0};o.n+=cnt(c);o.max=Math.max(o.max,c.sizeCm||0)});
   $('#lureRank').innerHTML=tableHTML(['ルアー/エサ','匹','最大'],Object.entries(lu).sort((a,b)=>b[1].n-a[1].n).slice(0,20).map(([k,o])=>[esc(k),o.n,o.max?o.max+'cm':'-']));
+  const rankBy=(keyFn,label,order)=>{const g={};rows.forEach(({c})=>{const k=keyFn(c);if(k==null||k==='')return;const o=g[k]=g[k]||{n:0,max:0};o.n+=cnt(c);o.max=Math.max(o.max,c.sizeCm||0)});
+    let ks=Object.keys(g);ks.sort(order?(a,b)=>order(a)-order(b):(a,b)=>g[b].n-g[a].n);
+    return tableHTML([label,'匹','最大'],ks.slice(0,20).map(k=>[esc(k),g[k].n,g[k].max?g[k].max+'cm':'-']))};
+  $('#colorRank').innerHTML=rankBy(c=>c.lureColor,'カラー');
+  $('#weightRank').innerHTML=rankBy(c=>{const w=c.lureWeight;if(w==null||w==='')return null;
+    const b=w<10?Math.floor(w/2)*2:w<40?Math.floor(w/5)*5:w<100?Math.floor(w/10)*10:Math.floor(w/20)*20;
+    const st=w<10?2:w<40?5:w<100?10:20;return `${b}〜${b+st}g`},'重さ',k=>parseFloat(k));
 
   // ポイント
   $('#pointExpect').innerHTML=groupTable(ss,fsp,s=>s.pointName||(s._r?'非公開':'未設定'));
@@ -2197,6 +2333,7 @@ function buildLists(){
   const pNames=uniq([...sessions.map(s=>s.pointName),...points.map(p=>p.name)]);
   $('#speciesList').innerHTML=uniq([...allSp,...fishDict.map(f=>f.name)]).map(n=>`<option value="${esc(n)}">`).join('');
   $('#lureList').innerHTML=byFreq(sessions.flatMap(s=>s.catches.map(c=>c.lure))).slice(0,80).map(n=>`<option value="${esc(n)}">`).join('');
+  $('#colorList').innerHTML=uniq([...byFreq(sessions.flatMap(s=>s.catches.map(c=>c.lureColor))),'イワシ','キビナゴ','アジ','ピンク','オレンジ','チャート','グロー','ケイムラ','赤金','青銀','ゴールド','シルバー','ブラック','クリア','ゼブラグロー']).slice(0,80).map(n=>`<option value="${esc(n)}">`).join('');
   $('#methodList').innerHTML=methods.map(n=>`<option value="${esc(n)}">`).join('');
   $('#pointNameList').innerHTML=pNames.map(n=>`<option value="${esc(n)}">`).join('');
   $('#boatList').innerHTML=byFreq(sessions.map(s=>s.boat)).map(n=>`<option value="${esc(n)}">`).join('');
@@ -2236,15 +2373,15 @@ async function importJSON(file){
 }
 function exportCSV(){
   const head=['日付','開始','終了','釣行時間h','釣法','ポイント','船名','緯度','経度','潮回り','月齢','天気','気温','水温','風向','風速m/s','気圧hPa','波高m','濁り',
-    '魚種','サイズcm','重さg','匹数','ヒット時刻','潮位フェーズ','タナm','ルアー・エサ','リリース','ロッド','リール','ライン','仕掛け','メモ'];
+    '狙い','アタリ','バラシ','魚種','サイズcm','重さg','匹数','ヒット時刻','潮位フェーズ','タナm','ルアー・エサ','カラー','ルアー重さg','リリース','釣れた緯度','釣れた経度','ロッド','リール','ライン','仕掛け','メモ'];
   const rows=[head];
   [...sessions].sort((a,b)=>(a.date+a.startTime).localeCompare(b.date+b.startTime)).forEach(s=>{
     const h=sessionHours(s);
     const base=[s.date,s.startTime,s.endTime,h?h.toFixed(1):'',s.method,s.pointName,s.boat||'',s.lat,s.lng,s.tide.type,s.tide.moonAge,s.weather.condition,
-      s.weather.tempC,s.weather.waterTempC,s.weather.windDir,s.weather.windMs,s.weather.pressureHpa,s.weather.waveM,s.weather.clarity];
+      s.weather.tempC,s.weather.waterTempC,s.weather.windDir,s.weather.windMs,s.weather.pressureHpa,s.weather.waveM,s.weather.clarity,s.target||'',s.bites??'',s.lost??''];
     const tail=[s.tackle.rod,s.tackle.reel,[s.tackle.lineType,s.tackle.lineDetail].filter(Boolean).join(' '),s.tackle.rig,s.memo];
     const cs=s.catches.length?s.catches:[null];        // ボウズの釣行も1行出す
-    cs.forEach(c=>rows.push([...base,...(c?[c.species,c.sizeCm||'',c.weightG,cnt(c),c.hitTime,phaseLabel(catchPhase(s,c)),c.depthM,c.lure,c.released?'○':'']:['','','',0,'','','','','']),...tail]));
+    cs.forEach(c=>rows.push([...base,...(c?[c.species,c.sizeCm||'',c.weightG,cnt(c),c.hitTime,phaseLabel(catchPhase(s,c)),c.depthM,c.lure,c.lureColor||'',c.lureWeight??'',c.released?'○':'',c.lat??'',c.lng??'']:['','','',0,'','','','','','','','','']),...tail]));
   });
   const csv=rows.map(r=>r.map(v=>{const s=String(v??'');return /[",\r\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s}).join(',')).join('\r\n');
   download('fishing-log-'+stamp()+'.csv','﻿'+csv,'text/csv;charset=utf-8');   // BOM付き＝Excelで文字化けしない
