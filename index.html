@@ -114,6 +114,13 @@ tr.tap{cursor:pointer}
 .counter button{width:38px;height:40px;flex:0 0 38px;border-radius:8px;border:1px solid var(--line);background:var(--card);color:var(--text);font-size:20px}
 .quick{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
 .quick button{background:var(--accent2);color:#fff;border:0;border-radius:20px;padding:10px 14px;font-size:15px;font-weight:600;min-height:44px}
+.card.fold>h2{cursor:pointer;display:flex;align-items:center;gap:6px;margin-bottom:0}
+.card.fold>h2::after{content:'▲';margin-left:auto;font-size:12px;color:var(--muted)}
+.card.fold.shut>h2::after{content:'▼'}
+.card.fold:not(.shut)>h2{margin-bottom:10px}
+.card.fold.shut>:not(h2):not(.foldsum){display:none}
+.foldsum{font-size:12px;color:var(--muted);margin-top:4px}
+.card.fold:not(.shut)>.foldsum{display:none}
 .cthumb{width:40px;height:40px;object-fit:cover;border-radius:6px;margin-left:6px;vertical-align:middle}
 </style>
 </head>
@@ -181,9 +188,9 @@ tr.tap{cursor:pointer}
       <label>日付（数字4桁で入力できます。例: 1114）</label>
       <div class="row">
         <input id="fDate" type="text" class="datebox" inputmode="numeric" maxlength="10" autocomplete="off" placeholder="例 1114">
-        <button class="btn small ghost fit" id="dPrev" type="button">◀前日</button>
+        <button class="btn small ghost fit" id="dPrev" type="button" aria-label="前日">◀</button>
         <button class="btn small ghost fit" id="dToday" type="button">今日</button>
-        <button class="btn small ghost fit" id="dNext" type="button">翌日▶</button>
+        <button class="btn small ghost fit" id="dNext" type="button" aria-label="翌日">▶</button>
       </div>
       <div class="row">
         <div><label>開始（数字4桁）</label><input id="fStart" type="text" class="timebox" inputmode="numeric" maxlength="5" autocomplete="off" placeholder="例 0530"></div>
@@ -211,8 +218,8 @@ tr.tap{cursor:pointer}
       </div>
     </div>
 
-    <div class="card">
-      <h2>🌤️ 天気・潮</h2>
+    <div class="card fold shut" data-fold="env">
+      <h2>🌤️ 天気・潮</h2><div class="foldsum" id="sumEnv"></div>
       <label style="margin-top:0">潮の基準港（潮位は通信なしで計算します）</label>
       <select id="fPort"><option value="">自動（最寄りの港）</option></select>
       <div class="mini" id="tideInfo" style="margin-top:6px"></div>
@@ -253,8 +260,8 @@ tr.tap{cursor:pointer}
       </div>
     </div>
 
-    <div class="card">
-      <h2>🎣 タックル</h2>
+    <div class="card fold shut" data-fold="tackle">
+      <h2>🎣 タックル</h2><div class="foldsum" id="sumTackle"></div>
       <select id="fTackleSel"><option value="">プリセットなし</option></select>
       <details>
         <summary>タックル詳細を入力</summary>
@@ -277,8 +284,8 @@ tr.tap{cursor:pointer}
       </details>
     </div>
 
-    <div class="card">
-      <h2>🗒️ メモ・写真</h2>
+    <div class="card fold shut" data-fold="memo">
+      <h2>🗒️ メモ・写真</h2><div class="foldsum" id="sumMemo"></div>
       <textarea id="fMemo" placeholder="ヒットパターン・レンジ・地形・ベイト・気づきなど"></textarea>
       <label>写真（複数可・自動で軽量化します）</label>
       <input id="fPhotos" type="file" accept="image/*" multiple>
@@ -288,7 +295,7 @@ tr.tap{cursor:pointer}
     <div style="padding-bottom:20px">
       <button class="btn" id="saveSession">💾 釣行を保存する</button>
       <button class="btn small ghost" id="discardDraft">入力をすべてクリア</button>
-      <div class="mini" style="text-align:center;margin-top:8px">入力中の内容は自動で一時保存されます（アプリを閉じても消えません）</div>
+      <div class="mini" style="text-align:center;margin-top:8px">入力中の内容は自動で一時保存されます（アプリを閉じても消えません）<br>天気が空のままなら、保存するときに自動で取得します</div>
     </div>
   </section>
 
@@ -1091,7 +1098,7 @@ async function init(){
   if(localStorage.getItem('flp-red')==='1')document.body.classList.add('red-mode');
   try{await openDB()}catch(e){alert('データベースを開けませんでした。プライベートモードでは保存できません。\n'+e);return}
   await loadAll();
-  bindBoxes();bindTabs();bindRecord();bindList();bindStats();bindPoints();bindSettings();
+  bindBoxes();bindTabs();bindRecord();bindFolds();bindList();bindStats();bindPoints();bindSettings();
   buildLists();
   await restoreDraft();
   renderAll();
@@ -1113,7 +1120,7 @@ function sharedPool(){                     // みんなの釣果 = 公開中の�
     pointName:s.share==='place'?s.pointName:'',boat:s.share==='place'?s.boat:'',photos:[],memo:''})),...remotes];
 }
 function ownerLabel(s){return s._mine?(s.ownerName+'（自分）'):(s.ownerName||'名無しの釣り人')}
-function renderAll(){buildLists();renderBanner();renderCatchList();renderPhotoPreview();renderSessions();renderSettings();
+function renderAll(){buildLists();renderBanner();renderCatchList();renderPhotoPreview();renderSessions();renderSettings();renderFoldSums();
   if($('#tab-stats').classList.contains('active'))renderStats();
   if($('#tab-points').classList.contains('active'))renderPoints();}
 
@@ -1164,7 +1171,7 @@ function bindRecord(){
     const files=[...e.target.files];if(!files.length)return;
     toast('写真を処理中…',4000);
     for(const f of files){try{currentPhotos.push(await compressImage(f))}catch(err){console.warn(err)}}
-    e.target.value='';renderPhotoPreview();saveDraftSoon();toast(files.length+'枚追加しました');
+    e.target.value='';renderPhotoPreview();renderFoldSums();saveDraftSoon();toast(files.length+'枚追加しました');
   };
   $('#saveSession').onclick=saveSession;
   $('#discardDraft').onclick=async()=>{
@@ -1252,6 +1259,22 @@ function refreshMoon(){                     // 月齢・潮回り・満干・潮
   applyTidePhases(currentTide,date,$('#fStart').value,$('#fEnd').value,currentCatches);
 }
 
+function renderFoldSums(){
+  const w=[$('#fWeather').value.replace(/^\S+\s/,''),$('#fWindDir').value?($('#fWindDir').value+($('#fWindMs').value?' '+$('#fWindMs').value+'m':'')):'',$('#fTide').value,$('#fWater').value?'水温'+$('#fWater').value+'℃':''].filter(Boolean);
+  const ev=currentTide?tideEventsOfDay(currentTide).map(e=>(e.type==='high'?'満':'干')+e.time).join(' '):'';
+  const hasW=$('#fWeather').value||$('#fWindDir').value||$('#fTemp').value;
+  $('#sumEnv').textContent=(hasW?'':'天気は保存時に自動取得 ／ ')+(w.length?w.join('・'):'')+(ev?' ／ '+ev:'');
+  const tk=[$('#fTackleSel').selectedOptions[0]?.value?$('#fTackleSel').selectedOptions[0].text:'',$('#fRod').value,$('#fReel').value].filter(Boolean);
+  $('#sumTackle').textContent=tk.length?tk.join(' / '):'未入力（タップして入力・プリセット選択）';
+  const m=$('#fMemo').value.trim();
+  $('#sumMemo').textContent=[m?m.slice(0,24)+(m.length>24?'…':''):'メモなし',currentPhotos.length?'写真'+currentPhotos.length+'枚':''].filter(Boolean).join(' ／ ');
+}
+function bindFolds(){
+  $$('.card.fold>h2').forEach(h=>h.onclick=()=>{const c=h.parentElement;c.classList.toggle('shut');
+    if(!c.classList.contains('shut')&&c.dataset.fold==='env')refreshMoon();});
+  $('#tab-record').addEventListener('input',()=>setTimeout(renderFoldSums,0));
+  $('#tab-record').addEventListener('change',()=>setTimeout(renderFoldSums,0));
+}
 function renderCounters(){$('#fBitesV').textContent=+$('#fBites').value||0;$('#fLostV').textContent=+$('#fLost').value||0}
 function renderCatchPhoto(){
   const el=$('#cPhotoPrev');
@@ -1587,13 +1610,14 @@ function applyFormState(d){
   editingId=d.editingId||null;tideManual=!!d.tideManual;
   setLatLng(d.latlng||null);
 }
+function resetFolds(){$$('.card.fold').forEach(c=>c.classList.add('shut'))}
 function resetForm(){
   FORM_IDS.forEach(id=>$('#'+id).value='');
   $('#fPhotos').value='';clearCatchForm(false);
   currentPhotos=[];currentCatches=[];editingId=null;editingCatchId=null;tideManual=false;currentTide=null;
   $('#fDate').value=todayStr();$('#fStart').value=nowTime();$('#envStatus').textContent='';
   $('#fShare').value=shareDefault();
-  setLatLng(null);
+  setLatLng(null);resetFolds();
 }
 function renderBanner(){
   const el=$('#bannerArea');let h='';
@@ -1620,6 +1644,11 @@ async function saveSession(){
     toast('ポイント名・釣果・メモのどれかを入力してください',2600);return;
   }
   if(!currentCatches.length&&!confirm('釣果なし（ボウズ）の釣行として保存しますか？'))return;
+  if(!editingId&&!$('#fWeather').value&&$('#fWindMs').value===''&&$('#fTemp').value===''&&navigator.onLine!==false){
+    const btn=$('#saveSession');btn.disabled=true;btn.textContent='天気を取得してから保存します…';
+    try{await Promise.race([autoEnv(),new Promise(r=>setTimeout(r,9000))])}catch(e){}
+    btn.disabled=false;
+  }
   let endTime=$('#fEnd').value;
   if(!endTime&&!editingId&&date===todayStr())endTime=nowTime();
   let pointId=$('#fPointSel').value||null;
