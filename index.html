@@ -12,6 +12,10 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.js"></script>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="tide-ports.js"></script>
+<script src="./firebace-config.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
 <style>
 :root{
   --bg:#0b1f17; --card:#11291f; --line:#1e4433; --text:#e8f5ee; --muted:#8fb3a2;
@@ -110,6 +114,7 @@ tr.tap{cursor:pointer}
   <h1>🎣 釣果ノート Pro</h1>
   <button id="redBtn" title="夜釣り用レッドライト">🌙</button>
   <button id="exportBtn" title="バックアップ(JSON)">📤</button>
+  <button id="authBtn" title="共有ログイン">ログイン</button>
 </header>
 
 <main>
@@ -210,6 +215,7 @@ tr.tap{cursor:pointer}
           <option value="">--</option><option>澄み</option><option>やや澄み</option>
           <option>笹濁り</option><option>濁り</option><option>激濁り</option>
         </select></div>
+        <div><label>波高m</label><input id="fWave" type="number" step="0.1" inputmode="decimal"></div>
       </div>
     </div>
 
@@ -299,6 +305,7 @@ tr.tap{cursor:pointer}
     <div class="card"><h2>🌡️ 水温帯別</h2><div id="waterTable"></div></div>
     <div class="card"><h2>💨 風向別</h2><div id="windTable"></div></div>
     <div class="card"><h2>🌤️ 天気別</h2><div id="weatherTable"></div></div>
+    <div class="card"><h2>🎚️ 気圧帯別</h2><div id="pressureTable"></div></div>
     <div class="card"><h2>🎣 ルアー・エサ別</h2><div id="lureRank"></div></div>
     <div class="card"><h2>📍 ポイント別</h2><div id="pointExpect"></div></div>
     <div class="card"><h2>📅 月別（シーズン）</h2><canvas id="monthChart" height="170"></canvas><div id="yearTable" style="margin-top:8px"></div></div>
@@ -329,6 +336,22 @@ tr.tap{cursor:pointer}
 
   <!-- ============ 設定 ============ -->
   <section id="tab-settings" class="tab">
+    <div class="card">
+      <h2>👥 共有（メンバーと記録を共有）</h2>
+      <div class="mini" id="shareStatus">読み込み中…</div>
+      <label>あなたのUID（メンバー登録のときに管理者へ伝えてください）</label>
+      <div class="row">
+        <input id="shareUid" readonly placeholder="未ログイン">
+        <button class="btn small ghost fit" id="shareUidCopy" type="button">コピー</button>
+      </div>
+      <label>表示名（仲間に表示される名前）</label>
+      <div class="row">
+        <input id="shareName" placeholder="例: ヒデさん" autocomplete="off">
+        <button class="btn small fit" id="shareNameSave" type="button">保存</button>
+      </div>
+      <button class="btn small" id="shareSyncBtn">🔄 今すぐ同期</button>
+      <div class="mini" style="margin-top:6px">共有されるのは釣行記録のみです。写真・ポイント・タックルプリセット・魚種辞書は共有されません。</div>
+    </div>
     <div class="card">
       <h2>🗂️ バックアップ・データ管理</h2>
       <div class="mini" id="storageInfo"></div>
@@ -368,7 +391,7 @@ tr.tap{cursor:pointer}
       <div id="fishList" style="margin-top:8px"></div>
     </div>
     <div class="card">
-      <div class="mini">気象: 気象庁アメダス（実測）・気象庁天気予報・Open-Meteo ／ 水温: Open-Meteo ／ 潮位: 気象庁「潮位表掲載地点一覧表」の調和定数からアプリ内で計算（満干時刻は潮位表と10〜30分ずれることがあります。航行や安全判断には使わないでください）／ 地図: 国土地理院タイル・OpenStreetMap<br>データはこの端末のブラウザ内にのみ保存されます。機種変更や閲覧データ削除に備えて、定期的にバックアップしてください。</div>
+      <div class="mini">気象: 気象庁アメダス（実測）・気象庁天気予報・Open-Meteo ／ 水温・波高: Open-Meteo ／ 潮位: 気象庁「潮位表掲載地点一覧表」の調和定数からアプリ内で計算（満干時刻は潮位表と10〜30分ずれることがあります。航行や安全判断には使わないでください）／ 地図: 国土地理院タイル・OpenStreetMap<br>データはこの端末のブラウザ内にのみ保存されます。機種変更や閲覧データ削除に備えて、定期的にバックアップしてください。</div>
     </div>
   </section>
 </main>
@@ -386,6 +409,292 @@ tr.tap{cursor:pointer}
 <script>
 'use strict';
 /* =========================================================
+   共有機能（第1弾）: Firebaseログイン + 釣行記録(sessions)の同期
+   - 端末内保存(IndexedDB)が常に正。クラウドは「上乗せ」であり、
+     Firebaseが使えない環境（SDK未読込・設定なし・オフライン等）では
+     このブロックは何もせず、アプリは端末内のみで完全に動作する。
+   - 写真(dataURL)はクラウドへ送らない（photos は常に空で送る）。
+   - 同期するのは釣行記録(sessions)のみ。
+   ========================================================= */
+let fbApp=null, fbAuth=null, fbDb=null;
+let cloudUser=null;          // ログイン中のユーザー（firebase.auth）
+let cloudMember=null;        // null=未確認 / true=メンバー / false=登録待ち
+let cloudListening=false;    // /shared/sessions のリスナー装着済みか
+let cloudLastSync=0;         // 最終同期時刻(ms)
+
+function cloudFb(){
+  if(fbApp)return true;
+  try{
+    if(!window.FIREBASE_CONFIG||typeof firebase==='undefined')return false;
+    fbApp=(firebase.apps&&firebase.apps.length)?firebase.app():firebase.initializeApp(window.FIREBASE_CONFIG);
+    fbAuth=firebase.auth();
+    fbDb=firebase.database();
+    return true;
+  }catch(e){fbApp=null;fbAuth=null;fbDb=null;return false}
+}
+function cloudName(){try{return localStorage.getItem('flp-share-name')||''}catch(e){return ''}}
+function cloudSetLocalName(n){try{localStorage.setItem('flp-share-name',n)}catch(e){}}
+function cloudWaitDb(){return new Promise(res=>{let n=0;const t=setInterval(()=>{let ok=false;try{ok=!!db}catch(e){}if(ok||++n>40){clearInterval(t);res(ok)}},250)})}
+
+/* ---------------- 初期化（init() から呼ばれる） ---------------- */
+function initCloudSync(){
+  const btn=$('#authBtn');
+  if(btn)btn.onclick=()=>openAuthModal();
+  const copyBtn=$('#shareUidCopy');
+  if(copyBtn)copyBtn.onclick=()=>{
+    const inp=$('#shareUid');
+    if(!inp||!inp.value){toast('UIDがありません（未ログイン）');return}
+    const done=()=>toast('UIDをコピーしました');
+    if(navigator.clipboard&&navigator.clipboard.writeText){
+      navigator.clipboard.writeText(inp.value).then(done).catch(()=>{inp.select();try{document.execCommand('copy')}catch(e){}done()});
+    }else{inp.select();try{document.execCommand('copy')}catch(e){}done()}
+  };
+  const nameBtn=$('#shareNameSave');
+  if(nameBtn)nameBtn.onclick=async()=>{
+    const n=$('#shareName').value.trim();
+    cloudSetLocalName(n);
+    if(cloudUser&&cloudMember===true&&fbDb){try{await fbDb.ref('users/'+cloudUser.uid+'/name').set(n)}catch(e){}}
+    cloudRenderShareUI();
+    toast(n?'表示名を保存しました':'表示名を空にしました');
+  };
+  const syncBtn=$('#shareSyncBtn');
+  if(syncBtn)syncBtn.onclick=()=>cloudSyncButton();
+  cloudRenderShareUI();
+  if(!cloudFb())return;   // Firebaseが使えない環境ではここまで（端末内のみ）
+  try{fbAuth.onAuthStateChanged(u=>{cloudOnAuth(u).catch(()=>{})})}catch(e){}
+}
+
+/* ---------------- ログイン状態の変化 ---------------- */
+async function cloudOnAuth(u){
+  cloudUser=u||null;
+  cloudMember=null;
+  if(!cloudUser){cloudStopListen();cloudRenderShareUI();return}
+  cloudRenderShareUI();
+  // メンバー確認: /members/{uid} が読めればメンバー（ルールで本人確認される）
+  let isMember=false;
+  try{
+    const snap=await fbDb.ref('members/'+cloudUser.uid).once('value');
+    isMember=snap.exists();
+  }catch(e){isMember=false}   // 権限エラー = 未登録
+  cloudMember=isMember;
+  if(!cloudMember){cloudRenderShareUI();return}   // 登録待ち: 同期はしない（端末内利用は継続）
+  // 表示名: ローカルにあればクラウドへ、無ければクラウドから取得
+  try{
+    if(cloudName()){await fbDb.ref('users/'+cloudUser.uid+'/name').set(cloudName())}
+    else{
+      const ns=await fbDb.ref('users/'+cloudUser.uid+'/name').once('value');
+      const nv=ns.val();if(nv)cloudSetLocalName(String(nv));
+    }
+  }catch(e){}
+  cloudRenderShareUI();
+  cloudStartListen();
+  cloudSyncNow().catch(()=>{});
+}
+
+/* ---------------- 共有欄・ヘッダーの表示更新 ---------------- */
+function cloudRenderShareUI(){
+  const btn=$('#authBtn');
+  if(btn)btn.textContent=cloudUser?(cloudName()||(cloudUser.email?cloudUser.email.split('@')[0]:'ログイン中')):'ログイン';
+  const st=$('#shareStatus');if(!st)return;
+  const nameInp=$('#shareName');
+  if(nameInp&&document.activeElement!==nameInp)nameInp.value=cloudName();
+  const uidInp=$('#shareUid');
+  if(uidInp)uidInp.value=cloudUser?cloudUser.uid:'';
+  let html;
+  if(!window.FIREBASE_CONFIG||typeof firebase==='undefined'){
+    html='共有機能は利用できません（設定ファイルが読み込めないか、通信が必要です）。記録はこの端末内のみに保存されます。';
+  }else if(!cloudUser){
+    html='未ログインです。ヘッダーの「ログイン」からログインすると、メンバー同士で釣行記録を共有できます。';
+  }else if(cloudMember===null){
+    html=esc(cloudUser.email||'')+' でログイン中。メンバー確認中…';
+  }else if(cloudMember===false){
+    html=esc(cloudUser.email||'')+' でログイン中。<br><b>メンバー登録待ちです（管理者に連絡してください）</b>。<br>下の「あなたのUID」を管理者に伝えると登録されます。登録されるまでは端末内のみの利用です（記録は今まで通り使えます）。';
+  }else{
+    html=esc(cloudUser.email||'')+' でログイン中（メンバー登録済み）。<br>釣行記録は自動で共有されます（写真は端末内にのみ保存されます）。'
+      +(cloudLastSync?'<br>最終同期: '+new Date(cloudLastSync).toLocaleTimeString('ja-JP'):'');
+  }
+  st.innerHTML=html;
+}
+
+/* ---------------- ログインモーダル ---------------- */
+function cloudAuthError(e){
+  const code=(e&&e.code)||'';
+  const map={
+    'auth/invalid-email':'メールアドレスの形式が正しくありません',
+    'auth/user-not-found':'登録されていないメールアドレスです',
+    'auth/wrong-password':'パスワードが違います',
+    'auth/invalid-credential':'メールアドレスまたはパスワードが違います',
+    'auth/email-already-in-use':'このメールアドレスは登録済みです。「ログイン」を押してください',
+    'auth/weak-password':'パスワードは6文字以上にしてください',
+    'auth/network-request-failed':'通信に失敗しました。電波の良い場所でもう一度お試しください',
+    'auth/too-many-requests':'試行回数が多すぎます。しばらく待ってからお試しください',
+    'auth/operation-not-allowed':'このログイン方法は有効になっていません（管理者に連絡してください）'
+  };
+  return map[code]||('エラーが発生しました'+(code?'（'+code+'）':''));
+}
+function openAuthModal(){
+  if(!cloudFb()){
+    const o=openModal(`
+      <h2 style="margin:0 0 8px;font-size:17px">👥 共有ログイン</h2>
+      <div class="mini">共有機能は現在利用できません（オフライン、または設定ファイルが読み込めませんでした）。<br>記録はこの端末の中に保存されます。</div>
+      <button class="btn small ghost" data-a="close" style="margin-top:12px">閉じる</button>`);
+    o.querySelector('[data-a=close]').onclick=()=>o.remove();
+    return;
+  }
+  if(cloudUser){
+    const o=openModal(`
+      <h2 style="margin:0 0 8px;font-size:17px">👥 共有ログイン</h2>
+      <div class="mini">${esc(cloudUser.email||'')} でログイン中です。<br>${cloudMember===true?'メンバー登録済み：釣行記録は自動で共有されます。':cloudMember===false?'メンバー登録待ちです（管理者に連絡してください）。':'メンバー確認中…'}</div>
+      ${cloudMember===false?`<label>あなたのUID（管理者に伝えてください）</label><input readonly value="${esc(cloudUser.uid)}" onclick="this.select()">`:''}
+      <div class="row" style="margin-top:12px">
+        <button class="btn small danger" data-a="out">ログアウト</button>
+        <button class="btn small ghost" data-a="close">閉じる</button>
+      </div>`);
+    o.querySelector('[data-a=close]').onclick=()=>o.remove();
+    o.querySelector('[data-a=out]').onclick=async()=>{try{await fbAuth.signOut()}catch(e){}o.remove();toast('ログアウトしました')};
+    return;
+  }
+  const o=openModal(`
+    <h2 style="margin:0 0 8px;font-size:17px">👥 共有ログイン</h2>
+    <div class="mini">ログインすると、メンバー同士で釣行記録を共有できます（写真は共有されず、端末内に残ります）。<br>登録しただけでは共有は始まらず、管理者がメンバー登録をしてから共有が有効になります。</div>
+    <label>メールアドレス</label>
+    <input id="auEmail" type="email" autocomplete="username" placeholder="例: you@example.com">
+    <label>パスワード</label>
+    <input id="auPass" type="password" autocomplete="current-password" placeholder="6文字以上">
+    <div class="mini" id="auMsg" style="color:var(--warn);min-height:1.4em;margin-top:6px"></div>
+    <button class="btn small" data-a="in">ログイン</button>
+    <button class="btn small ghost" data-a="up">新規登録</button>
+    <button class="btn small ghost" data-a="close">ログインせず使う（端末内のみ）</button>`);
+  const msg=t=>{o.querySelector('#auMsg').textContent=t};
+  const cred=()=>({email:o.querySelector('#auEmail').value.trim(),pass:o.querySelector('#auPass').value});
+  o.querySelector('[data-a=close]').onclick=()=>o.remove();
+  o.querySelector('[data-a=in]').onclick=async()=>{
+    const c=cred();if(!c.email||!c.pass){msg('メールアドレスとパスワードを入力してください');return}
+    try{await fbAuth.signInWithEmailAndPassword(c.email,c.pass);o.remove();toast('ログインしました')}
+    catch(e){msg(cloudAuthError(e))}
+  };
+  o.querySelector('[data-a=up]').onclick=async()=>{
+    const c=cred();if(!c.email||!c.pass){msg('メールアドレスとパスワードを入力してください');return}
+    try{await fbAuth.createUserWithEmailAndPassword(c.email,c.pass);o.remove();toast('登録しました。管理者のメンバー登録が終わると共有が始まります',3200)}
+    catch(e){msg(cloudAuthError(e))}
+  };
+}
+
+/* ---------------- 同期 ---------------- */
+function cloudSanitize(s){
+  let c;try{c=JSON.parse(JSON.stringify(s))}catch(e){c={...s}}
+  c.photos=[];   // 写真(dataURL)はクラウドへ送らない
+  if(Array.isArray(c.catches))c.catches=c.catches.map(x=>({...x,photos:[]}));
+  c.updatedAt=s.updatedAt||Date.now();
+  if(cloudUser)c.updatedBy=cloudUser.uid;
+  c.recorderName=s.recorderName||cloudName()||'';
+  delete c.deleted;
+  return c;
+}
+async function cloudWriteSession(s){
+  if(!cloudUser||cloudMember!==true||!fbDb)return;
+  await fbDb.ref('shared/sessions/'+s.id).set(cloudSanitize(s));
+}
+function cloudPushSession(session){   // saveSession（端末保存成功の直後）から呼ばれる
+  if(!cloudUser||cloudMember!==true)return;
+  cloudWriteSession(session).catch(()=>{});
+}
+function cloudDeleteSession(id){      // 記録の削除処理から呼ばれる（tombstoneを置く）
+  if(!cloudUser||cloudMember!==true||!fbDb)return;
+  fbDb.ref('shared/sessions/'+id).set({deleted:true,updatedAt:Date.now(),updatedBy:cloudUser.uid}).catch(()=>{});
+}
+function cloudSanitizeIncoming(r){
+  let c;try{c=JSON.parse(JSON.stringify(r))}catch(e){c={...r}}
+  if(!Array.isArray(c.photos))c.photos=[];
+  if(!Array.isArray(c.catches))c.catches=[];
+  return c;
+}
+/* クラウド→端末のマージ。実際に変化があった場合だけ再描画する。戻り値: 変化の有無 */
+async function cloudApplyRemote(remote){
+  await cloudWaitDb();
+  let changed=false;
+  const byId={};sessions.forEach(s=>byId[s.id]=s);
+  for(const id of Object.keys(remote||{})){
+    const r=remote[id];
+    if(!r||typeof r!=='object')continue;
+    const l=byId[id];
+    const rAt=r.updatedAt||0;
+    if(r.deleted){
+      if(l&&rAt>(l.updatedAt||0)){try{await idbDel('sessions',id);changed=true}catch(e){}}
+      continue;
+    }
+    if(!r.date)continue;
+    if(!l){
+      try{await idbPut('sessions',cloudSanitizeIncoming(r));changed=true}catch(e){}
+    }else if(rAt>(l.updatedAt||0)){
+      const rec=cloudSanitizeIncoming(r);
+      rec.photos=l.photos||[];   // 端末に既にある写真は消さない（写真は端末側を保持）
+      try{await idbPut('sessions',rec);changed=true}catch(e){}
+    }
+  }
+  if(changed){await loadAll();renderAll()}
+  return changed;
+}
+/* 双方向同期（ログイン時・「今すぐ同期」時）。戻り値: 変化の有無 */
+async function cloudSyncNow(){
+  if(!cloudUser||cloudMember!==true||!fbDb)return false;
+  await cloudWaitDb();
+  let remote={};
+  try{
+    const snap=await fbDb.ref('shared/sessions').once('value');
+    remote=snap.val()||{};
+  }catch(e){return false}
+  cloudLastSync=Date.now();
+  let changed=false;
+  if(Object.keys(remote).length===0){
+    // 初回（クラウドが空）: 端末の既存記録を現在時刻で一括アップロード
+    if(sessions.length){
+      const now=Date.now();
+      for(const s of sessions){
+        const rec={...s,updatedAt:now};
+        try{await idbPut('sessions',rec)}catch(e){}
+        await cloudWriteSession(rec).catch(()=>{});
+      }
+      await loadAll();renderAll();changed=true;
+    }
+    cloudRenderShareUI();
+    return changed;
+  }
+  for(const s of sessions){   // 端末側が新しいものをクラウドへ
+    const r=remote[s.id];
+    if((s.updatedAt||0)>(r?(r.updatedAt||0):-1)){await cloudWriteSession(s).catch(()=>{});changed=true}
+  }
+  if(await cloudApplyRemote(remote))changed=true;   // クラウド側が新しいものを端末へ
+  cloudRenderShareUI();
+  return changed;
+}
+async function cloudSyncButton(){
+  if(!cloudFb()){toast('共有機能は利用できません（通信環境をご確認ください）',2600);return}
+  if(!cloudUser){openAuthModal();return}
+  if(cloudMember!==true){toast('メンバー登録待ちです（管理者に連絡してください）',2600);return}
+  const changed=await cloudSyncNow().catch(()=>false);
+  toast(changed?'同期しました':'新しい記録はありませんでした',2200);
+  cloudRenderShareUI();
+}
+function cloudStartListen(){
+  if(cloudListening||!fbDb)return;
+  cloudListening=true;
+  try{
+    fbDb.ref('shared/sessions').on('value',snap=>{
+      cloudLastSync=Date.now();
+      cloudApplyRemote(snap.val()||{}).catch(()=>{});
+      cloudRenderShareUI();
+    },()=>{});
+  }catch(e){}
+}
+function cloudStopListen(){
+  if(cloudListening&&fbDb){try{fbDb.ref('shared/sessions').off()}catch(e){}}
+  cloudListening=false;
+}
+</script>
+<script>
+'use strict';
+/* =========================================================
    釣果ノート Pro  (schemaVersion 4)
    データは IndexedDB 'fishing-log-pro' に保存（旧版と互換）
    ========================================================= */
@@ -395,7 +704,7 @@ const METHODS=['ルアー','エギング','ショアジギング','オフショ�
   '渓流エサ','フライ','テンカラ','ワカサギ','その他'];
 const TIDES=['大潮','中潮','小潮','長潮','若潮'];
 const FORM_IDS=['fDate','fStart','fEnd','fMethod','fPointName','fPointSel','fBoat','fPort','fTackleSel','fRod','fReel','fLineType',
-  'fLineDetail','fRig','fWeather','fTemp','fWater','fWindDir','fWindMs','fPressure','fTide','fClarity','fMemo','cLure'];
+  'fLineDetail','fRig','fWeather','fTemp','fWater','fWindDir','fWindMs','fPressure','fWave','fTide','fClarity','fMemo','cLure'];
 
 let db;
 function openDB(){return new Promise((res,rej)=>{
@@ -674,6 +983,7 @@ async function init(){
   buildLists();
   await restoreDraft();
   renderAll();
+  if(typeof initCloudSync==='function')initCloudSync();
   if('serviceWorker' in navigator&&location.protocol==='https:'){navigator.serviceWorker.register('sw.js').catch(()=>{})}
 }
 async function loadAll(){
@@ -995,7 +1305,7 @@ async function autoEnv(){
   const [ja,om,sea]=await Promise.allSettled([
     fetchAmedas(ll,date,hour,isToday),
     fetchOpenMeteo(lat,lng,date,hour,isToday),
-    $('#fWater').value===''?fetchJSON(`https://marine-api.open-meteo.com/v1/marine?latitude=${lat}&longitude=${lng}&hourly=sea_surface_temperature&timezone=Asia%2FTokyo&start_date=${date}&end_date=${date}`):Promise.resolve(null)
+    ($('#fWater').value===''||$('#fWave').value==='')?fetchJSON(`https://marine-api.open-meteo.com/v1/marine?latitude=${lat}&longitude=${lng}&hourly=sea_surface_temperature,wave_height&timezone=Asia%2FTokyo&start_date=${date}&end_date=${date}`):Promise.resolve(null)
   ]);
   const A=ja.status==='fulfilled'?ja.value:null, O=om.status==='fulfilled'?om.value:null, msgs=[];
   const set=(id,v,d)=>{if(v!=null)$(id).value=(+v).toFixed(d)};
@@ -1027,7 +1337,9 @@ async function autoEnv(){
   }
   if(sea.status==='fulfilled'&&sea.value){
     const sst=sea.value.hourly?.sea_surface_temperature?.[Math.min(hour,23)];
-    if(sst!=null){$('#fWater').value=sst.toFixed(1);msgs.push('✅ 水温は海面水温の推定値（実測したら上書きを）')}
+    if(sst!=null&&$('#fWater').value===''){$('#fWater').value=sst.toFixed(1);msgs.push('✅ 水温は海面水温の推定値（実測したら上書きを）')}
+    const wv=sea.value.hourly?.wave_height?.[Math.min(hour,23)];
+    if(wv!=null&&$('#fWave').value===''){$('#fWave').value=wv.toFixed(1);msgs.push('✅ 波高は沖合の推定値（岸近くとは違うことがあります）')}
   }
   if(gpsMsg)msgs.push('（'+gpsMsg+'）');
   st.innerHTML=msgs.map(esc).join('<br>');
@@ -1128,7 +1440,7 @@ async function saveSession(){
     lat:currentLatLng?.lat??null,lng:currentLatLng?.lng??null,
     tackle:{rod:$('#fRod').value,reel:$('#fReel').value,lineType:$('#fLineType').value,lineDetail:$('#fLineDetail').value,rig:$('#fRig').value},
     weather:{condition:$('#fWeather').value,tempC:num($('#fTemp').value),pressureHpa:num($('#fPressure').value),
-      windDir:$('#fWindDir').value,windMs:num($('#fWindMs').value),waterTempC:num($('#fWater').value),clarity:$('#fClarity').value},
+      windDir:$('#fWindDir').value,windMs:num($('#fWindMs').value),waterTempC:num($('#fWater').value),waveM:num($('#fWave').value),clarity:$('#fClarity').value},
     tide:{type:$('#fTide').value,moonAge:mi.age,...(currentTide?.port?{port:currentTide.port}:{})},
     sun:currentLatLng?sunTimes(date,currentLatLng.lat,currentLatLng.lng):null,
     memo:$('#fMemo').value,photos:[...currentPhotos],catches,
@@ -1139,6 +1451,7 @@ async function saveSession(){
   }catch(e){
     alert('保存に失敗しました（端末の空き容量不足の可能性があります）。写真を減らしてもう一度お試しください。\n'+e);return;
   }
+  if(typeof cloudPushSession==='function')cloudPushSession(session);
   for(const c of catches){if(c.species)await idbPut('fish',{name:c.species})}
   if(navigator.storage?.persist)navigator.storage.persist().catch(()=>{});
   const wasEdit=!!editingId;
@@ -1158,7 +1471,7 @@ async function editSession(id){
       fPointSel:points.some(p=>p.id===s.pointId)?s.pointId:'',fBoat:s.boat||'',fPort:s.tide.port?.code||'',fTackleSel:'',fRod:s.tackle.rod||'',fReel:s.tackle.reel||'',
       fLineType:s.tackle.lineType||'',fLineDetail:s.tackle.lineDetail||'',fRig:s.tackle.rig||'',
       fWeather:s.weather.condition||'',fTemp:s.weather.tempC??'',fWater:s.weather.waterTempC??'',
-      fWindDir:s.weather.windDir||'',fWindMs:s.weather.windMs??'',fPressure:s.weather.pressureHpa??'',
+      fWindDir:s.weather.windDir||'',fWindMs:s.weather.windMs??'',fPressure:s.weather.pressureHpa??'',fWave:s.weather.waveM??'',
       fTide:s.tide.type||'',fClarity:s.weather.clarity||'',fMemo:s.memo||'',cLure:''},
     catches:s.catches.map(c=>({...c})),photos:[...s.photos],
     latlng:s.lat!=null?{lat:s.lat,lng:s.lng}:null,
@@ -1219,7 +1532,7 @@ function showSessionDetail(id){
   const s=sessions.find(x=>x.id===id);if(!s)return;
   const w=s.weather,sun=sessionSun(s),hrs=sessionHours(s);
   const env=[w.condition,w.tempC!=null?'気温'+w.tempC+'℃':'',w.waterTempC!=null?'水温'+w.waterTempC+'℃':'',
-    w.windDir||w.windMs!=null?'風 '+(w.windDir||'')+(w.windMs!=null?w.windMs+'m/s':''):'',w.pressureHpa!=null?w.pressureHpa+'hPa':'',w.clarity].filter(Boolean).map(esc).join(' ／ ');
+    w.windDir||w.windMs!=null?'風 '+(w.windDir||'')+(w.windMs!=null?w.windMs+'m/s':''):'',w.pressureHpa!=null?w.pressureHpa+'hPa':'',w.waveM!=null?'波高'+w.waveM+'m':'',w.clarity].filter(Boolean).map(esc).join(' ／ ');
   const tide=[s.tide.type,s.tide.moonAge!=null?'月齢'+s.tide.moonAge:'',sun&&s.lat!=null?`日の出${sun.rise} 日の入${sun.set}`:''].filter(Boolean).map(esc).join(' ／ ');
   const td=sessionTide(s),ev=td?eventsText(td):'';
   const tk=[s.tackle.rod,s.tackle.reel,(s.tackle.lineType||'')+(s.tackle.lineDetail?' '+s.tackle.lineDetail:''),s.tackle.rig].map(x=>(x||'').trim()).filter(Boolean).map(esc).join(' ／ ');
@@ -1245,6 +1558,7 @@ function showSessionDetail(id){
   o.querySelector('[data-a=del]').onclick=async()=>{
     if(!confirm(`${s.date} ${s.pointName||''} の記録を削除しますか？（元に戻せません）`))return;
     await idbDel('sessions',id);if(editingId===id){await clearDraft();resetForm()}
+    if(typeof cloudDeleteSession==='function')cloudDeleteSession(id);
     await loadAll();o.remove();renderAll();toast('削除しました');
   };
   if(td)drawTideChart('detailTide',s,td);
@@ -1549,6 +1863,9 @@ function renderStats(){
   $('#waterTable').innerHTML=groupTable(ss,fsp,s=>{const t=s.weather.waterTempC;if(t==null)return null;const b=Math.floor(t/2)*2;return `${b}〜${b+2}℃`},k=>parseFloat(k));
   $('#windTable').innerHTML=groupTable(ss,fsp,s=>s.weather.windDir||null);
   $('#weatherTable').innerHTML=groupTable(ss,fsp,s=>s.weather.condition||null);
+  $('#pressureTable').innerHTML=groupTable(ss,fsp,s=>{const p=s.weather.pressureHpa;if(p==null)return null;
+    if(p<1000)return '〜999hPa';if(p<1010)return '1000〜1009hPa';if(p<1020)return '1010〜1019hPa';return '1020hPa〜'},
+    k=>k.startsWith('〜')?999:parseFloat(k));
 
   // ルアー・エサ
   const lu={};
@@ -1726,6 +2043,7 @@ async function renderSettings(){
       if(navigator.storage.persisted)info+=(await navigator.storage.persisted())?'（保護済み）':'（ブラウザ判断で消える可能性あり → バックアップ推奨）'}
   }catch(e){}
   $('#storageInfo').innerHTML=info;
+  if(typeof cloudRenderShareUI==='function')cloudRenderShareUI();
 }
 
 /* ---------------- 選択肢 ---------------- */
@@ -1778,13 +2096,13 @@ async function importJSON(file){
   await loadAll();renderAll();toast(`${newer.length}件を取り込みました`,3000);
 }
 function exportCSV(){
-  const head=['日付','開始','終了','釣行時間h','釣法','ポイント','船名','緯度','経度','潮回り','月齢','天気','気温','水温','風向','風速m/s','気圧hPa','濁り',
+  const head=['日付','開始','終了','釣行時間h','釣法','ポイント','船名','緯度','経度','潮回り','月齢','天気','気温','水温','風向','風速m/s','気圧hPa','波高m','濁り',
     '魚種','サイズcm','重さg','匹数','ヒット時刻','潮位フェーズ','タナm','ルアー・エサ','リリース','ロッド','リール','ライン','仕掛け','メモ'];
   const rows=[head];
   [...sessions].sort((a,b)=>(a.date+a.startTime).localeCompare(b.date+b.startTime)).forEach(s=>{
     const h=sessionHours(s);
     const base=[s.date,s.startTime,s.endTime,h?h.toFixed(1):'',s.method,s.pointName,s.boat||'',s.lat,s.lng,s.tide.type,s.tide.moonAge,s.weather.condition,
-      s.weather.tempC,s.weather.waterTempC,s.weather.windDir,s.weather.windMs,s.weather.pressureHpa,s.weather.clarity];
+      s.weather.tempC,s.weather.waterTempC,s.weather.windDir,s.weather.windMs,s.weather.pressureHpa,s.weather.waveM,s.weather.clarity];
     const tail=[s.tackle.rod,s.tackle.reel,[s.tackle.lineType,s.tackle.lineDetail].filter(Boolean).join(' '),s.tackle.rig,s.memo];
     const cs=s.catches.length?s.catches:[null];        // ボウズの釣行も1行出す
     cs.forEach(c=>rows.push([...base,...(c?[c.species,c.sizeCm||'',c.weightG,cnt(c),c.hitTime,phaseLabel(catchPhase(s,c)),c.depthM,c.lure,c.released?'○':'']:['','','',0,'','','','','']),...tail]));
