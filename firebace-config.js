@@ -10,4 +10,4 @@ window.FIREBASE_CONFIG = {
 
 /* 魚種AI判定の中継役（Cloudflare Worker）のURL。設定したら「📷 写真から魚種をAI判定」が使えます
    例: 'https://fish-ai.xxxx.workers.dev' （空のままだとボタンは「準備がまだです」と表示） */
-window.FISH_AI_URL = '';
+window.FISH_AI_URL = 'https://fish-ai.ryuou7105.workers.dev';
