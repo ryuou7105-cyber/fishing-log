@@ -113,6 +113,10 @@ tr.tap{cursor:pointer}
 .counter b{min-width:28px;text-align:center;font-size:20px}
 .counter button{width:38px;height:40px;flex:0 0 38px;border-radius:8px;border:1px solid var(--line);background:var(--card);color:var(--text);font-size:20px}
 .quick{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.ai-res{margin-top:6px}.ai-res:empty{display:none}
+.ai-res .ai-c{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px}
+.ai-res button{background:var(--line);color:var(--text);border:1px solid var(--accent2);border-radius:20px;padding:8px 12px;font-size:14px;min-height:40px}
+.ai-res button b{color:var(--accent2);margin-left:4px;font-size:12px}
 .quick button{background:var(--accent2);color:#fff;border:0;border-radius:20px;padding:10px 14px;font-size:15px;font-weight:600;min-height:44px}
 .card.fold>h2{cursor:pointer;display:flex;align-items:center;gap:6px;margin-bottom:0}
 .card.fold>h2::after{content:'▲';margin-left:auto;font-size:12px;color:var(--muted)}
@@ -153,6 +157,9 @@ tr.tap{cursor:pointer}
         <div style="flex:0 0 76px"><label>cm</label><input id="cSize" type="number" step="0.1" inputmode="decimal" placeholder="45"></div>
         <div style="flex:0 0 62px"><label>匹</label><input id="cCount" type="number" inputmode="numeric" value="1" min="1"></div>
       </div>
+      <button class="btn small ghost" type="button" id="aiFishBtn">📷 写真から魚種をAI判定</button>
+      <input id="aiFishFile" type="file" accept="image/*" style="display:none">
+      <div id="aiFishRes" class="ai-res"></div>
       <label>ルアー / エサ（次の1匹にも引き継ぎます）</label>
       <input id="cLure" list="lureList" placeholder="例: サイレントアサシン99F / オキアミ" autocomplete="off">
       <div class="row" style="margin-top:6px">
@@ -1156,6 +1163,13 @@ function bindRecord(){
   $('#cGps').onchange=e=>localStorage.setItem('flp-cgps',e.target.checked?'1':'0');
   $('#cPhoto').onchange=async e=>{const f=e.target.files[0];e.target.value='';if(!f)return;
     try{catchPhoto=await compressImage(f);renderCatchPhoto()}catch(err){toast('写真を読めませんでした')}};
+  $('#aiFishBtn').onclick=()=>{
+    if(!window.FISH_AI_URL){toast('AI判定の準備がまだです（中継役のURLが未設定）',3000);return}
+    if(!cloudUser){openAuthModal();toast('AI判定はメンバーのログインが必要です',2600);return}
+    if(cloudMember!==true){toast('メンバー登録待ちです（管理者に連絡してください）',2600);return}
+    if(!navigator.onLine){toast('圏外のためAI判定できません',2600);return}
+    $('#aiFishFile').click()};
+  $('#aiFishFile').onchange=async e=>{const f=e.target.files[0];e.target.value='';if(f)aiFishIdentify(f)};
   $('#cancelCatchEdit').onclick=()=>{editingCatchId=null;clearCatchForm(false);renderCatchList()};
   $('#gpsBtn').onclick=async()=>{
     try{
@@ -1336,7 +1350,7 @@ function addOrUpdateCatch(){
 function clearCatchForm(keepLure){
   $('#cSpecies').value='';$('#cSize').value='';$('#cCount').value='1';$('#cHitTime').value='';
   $('#cWeight').value='';$('#cDepth').value='';$('#cReleased').checked=false;
-  catchPhoto=null;renderCatchPhoto();
+  catchPhoto=null;renderCatchPhoto();$('#aiFishRes').innerHTML='';
   if(!keepLure){$('#cLure').value='';$('#cColor').value='';$('#cLureW').value=''}
   $('#addCatch').textContent='＋ この釣果を追加';$('#cancelCatchEdit').style.display='none';
 }
@@ -1413,6 +1427,32 @@ function renderPhotoPreview(){
 function viewPhoto(src){
   const v=document.createElement('div');v.className='viewer';v.innerHTML=`<img src="${src}">`;
   v.onclick=()=>v.remove();document.body.appendChild(v);
+}
+/* ---- 写真から魚種をAI判定（Cloudflare Worker 経由で Gemini に問い合わせ） ---- */
+async function aiFishIdentify(file){
+  const box=$('#aiFishRes'),btn=$('#aiFishBtn');
+  let small;
+  try{small=await compressImage(file,768,0.8);catchPhoto=await compressImage(file);renderCatchPhoto()}
+  catch(e){toast('写真を読めませんでした');return}
+  btn.disabled=true;btn.textContent='🔎 判定中…（数秒かかります）';box.innerHTML='';
+  try{
+    const token=await fbAuth.currentUser.getIdToken();
+    const r=await fetch(window.FISH_AI_URL,{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},
+      body:JSON.stringify({image:small})});
+    const d=await r.json().catch(()=>({}));
+    if(!r.ok)throw new Error(d.error||('通信エラー '+r.status));
+    if(!d.isFish||!d.candidates||!d.candidates.length){
+      box.innerHTML=`<div class="mini">魚を判定できませんでした。${esc(d.note||'魚の全身が横向きに写った写真で試してください。')}</div>`;return}
+    box.innerHTML=`<div class="mini">AIの候補（タップで魚種に入力・写真はこの釣果に添付済み）</div><div class="ai-c">${
+      d.candidates.map(c=>`<button type="button" data-n="${esc(canonSpecies(c.name))}">${esc(canonSpecies(c.name))}<b>${c.confidence}%</b></button>`).join('')}</div>
+      <div class="mini" style="margin-top:4px">${esc(d.candidates[0].reason||'')}　※AIの判定は間違えることがあります</div>`;
+    $$('#aiFishRes [data-n]').forEach(b=>b.onclick=()=>{$('#cSpecies').value=b.dataset.n;
+      $$('#aiFishRes [data-n]').forEach(x=>x.style.background=x===b?'var(--accent2)':'');toast(b.dataset.n+' を入力しました',1400)});
+    const top=d.candidates[0];
+    if(!$('#cSpecies').value.trim()&&top.confidence>=70){$('#cSpecies').value=canonSpecies(top.name);
+      box.querySelector('[data-n]').style.background='var(--accent2)'}
+  }catch(e){box.innerHTML=`<div class="mini">AI判定に失敗しました：${esc(e.message||String(e))}</div>`}
+  finally{btn.disabled=false;btn.textContent='📷 写真から魚種をAI判定'}
 }
 function compressImage(file,max=1280,q=0.8){return new Promise((res,rej)=>{
   const url=URL.createObjectURL(file);const img=new Image();
